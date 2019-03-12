@@ -1,0 +1,8 @@
+config_local.py
+__pycache__/
+__pycache__/*
+*.pyc
+local_storage/
+.idea/
+.vscode/
+geckodriver.log
