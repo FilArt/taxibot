@@ -1,5 +1,10 @@
 HEADLESS = True
-DEBUG = True
+DEBUG = False
+
+# proxy
+REQUEST_KWARGS = {
+    'proxy_url': 'socks5://localhost:9050/',
+}
 
 # secrets
 TEST_CHAT_ID = ''
@@ -31,7 +36,7 @@ PENALTIES = {
 }
 
 # jobs configuration
-CHECK_DRIVERS_TASK_INTERVAL = 10
+CHECK_DRIVERS_TASK_INTERVAL = 5 * 600
 
 # constants
 TIME_FORMAT = '%H:%M:%S'
@@ -47,4 +52,3 @@ ASK_FOR_LUNCH = 'Попрошу отпустить вас на обед.'  # О�
 CANCEL_TESTIFY = 'Слушаю.'  # Ответ водителю, когда он не захотел отправлять аудио. Возможно, хочет заново записать.
 
 from config_local import *
-

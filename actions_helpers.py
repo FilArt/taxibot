@@ -1,6 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from actions import REGISTER_DRIVER
 from taxopark import Taxopark, InvalidTelephone
 
 
@@ -12,7 +11,7 @@ def ask_register_driver() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton(
             f"{d.name} {d.surname}",
-            callback_data=REGISTER_DRIVER + d.telephone
+            callback_data=d.telephone
         )]
         for d in drivers_info
     ]

@@ -1,9 +1,9 @@
-import os
 from datetime import datetime
-from typing import Dict, List
+from typing import List
 
-from config import PENALTIES, OLD_DRIVERS_STATUSES_FN, CHECK_DRIVERS_TASK_INTERVAL, NEW_DRIVERS_STATUSES_FN
+from config import PENALTIES, OLD_DRIVERS_STATUSES_FN, CHECK_DRIVERS_TASK_INTERVAL, YANDEX_LOGIN, YANDEX_PASSWORD
 from fs_store import Store
+from selenium_client import SeleniumClient
 
 
 class Payload:
@@ -47,13 +47,12 @@ class Punisher:
         Store.store(OLD_DRIVERS_STATUSES_FN, local_payloads)
 
     @classmethod
-    def fetch_and_update_busy_drivers_payloads(cls, selenium_client):
+    def fetch_and_update_busy_drivers_payloads(cls):
         old_busy_payloads = cls._get_old_busy_payloads()
-        new_busy_payloads = cls._get_new_busy_payloads(selenium_client)
+        new_busy_payloads = cls._get_new_busy_payloads()
 
         current_busy_payloads = []
         for payload in new_busy_payloads:
-
 
             # найдем payload этого же водителя среди старых, маппим по тлф
             old_payload = [p for p in old_busy_payloads if p.telephone == payload.telephone]
@@ -63,7 +62,7 @@ class Punisher:
 
             current_busy_payloads.append(payload)
 
-        Store.store(OLD_DRIVERS_STATUSES_FN, current_busy_payloads)
+        Store.store_failsafe(OLD_DRIVERS_STATUSES_FN, current_busy_payloads)
         return current_busy_payloads
 
     @staticmethod
@@ -115,18 +114,18 @@ class Punisher:
             return []
 
     @staticmethod
-    def _get_new_busy_payloads(selenium_client, way='selenium') -> List[Payload]:
+    def _get_new_busy_payloads(way='selenium') -> List[Payload]:
         """
         Данные из диспетчерской
         """
         if way == 'selenium':
-            # drivers = Store.load_json(NEW_DRIVERS_STATUSES_FN)
-            drivers = selenium_client.get_drivers_from_map()
-            return [
-                Payload(name=d['name'], surname=d['surname'], telephone=d['telephone'], penalties=1)
-                for d in drivers
-                if d['status'] == 'Busy' and int(d['minutes']) >= 5
-            ]
+            with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
+                drivers = client.get_drivers_from_map()
+                return [
+                    Payload(name=d['name'], surname=d['surname'], telephone=d['telephone'], penalties=1)
+                    for d in drivers
+                    if d['status'] == 'Busy' and int(d['minutes']) >= 5
+                ]
         else:
             raise NotImplementedError
 

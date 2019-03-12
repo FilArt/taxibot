@@ -1,11 +1,8 @@
-from time import sleep
-
 from datetime import datetime
-from future.backports.datetime import timedelta
 from telegram.bot import Bot
 from telegram.ext.jobqueue import Job, JobQueue
 
-from config import YANDEX_LOGIN, YANDEX_PASSWORD, CHECK_DRIVERS_TASK_INTERVAL, NEW_DRIVERS_STATUSES_FN
+from config import YANDEX_LOGIN, YANDEX_PASSWORD, CHECK_DRIVERS_TASK_INTERVAL, NEW_DRIVERS_STATUSES_FN, ALL_DRIVERS_FN
 from fs_store import Store
 from log import jobs_logger as logger
 from punishment import Punisher, Punishment
@@ -13,50 +10,34 @@ from selenium_client import SeleniumClient
 from taxopark import Taxopark
 from utils import merge_with_pattern
 
-selenium_client = SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD)
 
-
-def do_tasks_with_selenium(bot: Bot, job: Job):
-    """
-    Здесь выполняются все таски, для которых нужен веб интерфейс таксопарка
-    Цикл привязан к интервалу CHECK_DRIVERS_TASK_INTERVAL, т.к. это считай основная работа
-    update: хуево работает но идея норм
-    """
-
+def update_drivers(bot: Bot, job: Job):
     with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
-        while True:
-            start = datetime.now()
-
-            try:
-                # main task
-                fetch_busy_drivers(client)
-
-                # here can be placed another tasks
-
-            except Exception as e:
-                logger.exception(e)
-                client.close(Exception, None, e)
-                return do_tasks_with_selenium(bot, job)
-
-            end = datetime.now()
-            elapsed = end - start
-            if elapsed < timedelta(seconds=CHECK_DRIVERS_TASK_INTERVAL):
-                sleep(CHECK_DRIVERS_TASK_INTERVAL - elapsed.seconds)
+        logger.info('updating drivers list')
+        start_middle = datetime.now()
+        drivers = client.get_all_drivers()
+        if drivers:
+            Store.store_failsafe(ALL_DRIVERS_FN, drivers)
+        end_middle = datetime.now()
+        elapsed_middle = end_middle - start_middle
+        logger.info('drivers list update for %i seconds', elapsed_middle.seconds)
 
 
-def fetch_busy_drivers(client: SeleniumClient):
-    start = datetime.now()
-    drivers = client.get_drivers_from_map()
-    if drivers:
-        Store.store_failsafe(NEW_DRIVERS_STATUSES_FN, drivers)
-    end = datetime.now()
-    elapsed = end - start
-    logger.info('drivers fetched for %i seconds', elapsed.seconds)
+def fetching_drivers(bot: Bot, job: Job):
+    with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
+        logger.info('fetching drivers')
+        start_main = datetime.now()
+        drivers = client.get_drivers_from_map()
+        if drivers:
+            Store.store_failsafe(NEW_DRIVERS_STATUSES_FN, drivers)
+        end_main = datetime.now()
+        elapsed_main = end_main - start_main
+        logger.info('drivers fetched for %i seconds', elapsed_main.seconds)
 
 
 def process_supervision(bot: Bot, job: Job):
     logger.info('Checking drivers...')
-    payloads = Punisher.fetch_and_update_busy_drivers_payloads(selenium_client)
+    payloads = Punisher.fetch_and_update_busy_drivers_payloads()
     if not payloads:
         return
 

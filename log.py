@@ -8,3 +8,4 @@ logging.basicConfig(
 logger = logging.getLogger('main')
 jobs_logger = logging.getLogger('jobs')
 selenium_logger = logging.getLogger('selenium')
+taxopark_logger = logging.getLogger('taxopark')

@@ -1,12 +1,12 @@
 from telegram.ext import Updater
 
-from config import TOKEN
+from config import TOKEN, REQUEST_KWARGS
 from jobs import run_jobs
 from handlers import handling_handlers
 
 
 def main():
-    updater = Updater(token=TOKEN)
+    updater = Updater(token=TOKEN, request_kwargs=REQUEST_KWARGS)
 
     run_jobs(updater.job_queue)
     handling_handlers(updater.dispatcher)

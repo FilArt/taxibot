@@ -1,18 +1,30 @@
 import os
+from unittest import TestCase
+
 from fs_store import Store
 
 
-def test_store():
-    data = {"old": 1}
-    new_data = {"new": 2}
+class TestFSStore(TestCase):
+    def setUp(self):
+        self.filename1 = 'tests/test'
+        self.filename2 = 'tests/more_tests'
+        self.data1 = {'data': [1, 2, 3]}
+        self.data2 = {'data': [4, 5, 6]}
+        Store.store_failsafe(self.filename1, self.data1)
+        Store.store_failsafe(self.filename2, self.data2)
 
-    try:
-        Store.store("test.json", data)
-        Store.store("test.json", new_data)
+    def test_load(self):
+        data1 = Store.load(self.filename1)
+        data2 = Store.load(self.filename2)
 
-        assert Store.load("test.json") == {**data, **new_data}
-    finally:
-        os.remove("test.json")
+        self.assertEqual(self.data1, data1)
+        self.assertTrue(self.data2, data2)
 
+    def tearDown(self):
+        os.remove(self.filename1)
+        os.remove(self.filename2)
+        os.removedirs('/'.join(self.filename1.split('/')[:-1]))
 
-test_store()
+        second_file = '/'.join(self.filename2.split('/'))
+        if os.path.exists(second_file):
+            os.removedirs('/'.join(self.filename2.split('/')[:-1]))

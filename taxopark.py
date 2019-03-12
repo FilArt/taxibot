@@ -1,8 +1,9 @@
 from typing import List
 
-from fs_store import Store
 from config import DRIVERS_SECRETS_FN, SECRETS_FN, ALL_DRIVERS_FN
 from driver import Driver
+from fs_store import Store
+from log import taxopark_logger as logger
 
 
 class InvalidTelephone(Exception):
@@ -38,11 +39,19 @@ class Taxopark:
 
     @classmethod
     def get_registered_admins(cls) -> List:
-        return Store.load(SECRETS_FN).get('admins', [])
+        return cls._get_secret_file().get('admins', [])
 
     @classmethod
     def get_registered_drivers_tg_ids(cls) -> List:
-        return Store.load(SECRETS_FN).get('drivers', [])
+        return cls._get_secret_file().get('drivers', [])
+
+    @staticmethod
+    def _get_secret_file():
+        try:
+            return Store.load(SECRETS_FN)
+        except FileNotFoundError:
+            logger.info('creating secrets file')
+            Store.store_failsafe(SECRETS_FN, {})
 
     @classmethod
     def get_registered_drivers(cls) -> List[Driver]:

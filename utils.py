@@ -2,7 +2,7 @@ from taxopark import Taxopark
 
 
 def is_admin(tg_id):
-    return tg_id in Taxopark.get_registered_drivers_tg_ids()
+    return tg_id in Taxopark.get_registered_admins()
 
 
 def is_driver(tg_id):

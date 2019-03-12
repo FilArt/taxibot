@@ -6,3 +6,4 @@ local_storage/
 .idea/
 .vscode/
 geckodriver.log
+.mypy_cache/

@@ -7,14 +7,15 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
-from config import DEBUG, TIME_FORMAT, HEADLESS
+from config import TIME_FORMAT, HEADLESS
 from log import selenium_logger as logger
 
 
 class SeleniumClient:
-    BASE_URL = 'https://fleet.taxi.yandex.ru'
-    AUTH_URL = 'https://passport.yandex.ru/auth?retpath=https%3A%2F%2Ffleet.taxi.yandex.ru'
-    TAXOPARK_URL = 'https://fleet.taxi.yandex.ru/map?park=2f51f552dc07460dbf9f18e6176fc752'
+    BASE_URL = 'https://fleet.taxi.yandex.ru/'
+    AUTH_URL = 'https://passport.yandex.ru/auth'
+    TAXOPARK_URL = 'https://fleet.taxi.yandex.ru/map'
+    DRIVERS_URL = BASE_URL + "drivers"
 
     LOGIN_ID = 'passp-field-login'
     PASSWORD_ID = 'passp-field-passwd'
@@ -32,7 +33,6 @@ class SeleniumClient:
         self._user_list_tag = None
         self._phone_list_selector = None
         self._busy_button_pressed = False
-        self = self.__enter__()
 
     def __enter__(self):
         """
@@ -59,6 +59,29 @@ class SeleniumClient:
     def close(self, exc_type, exc_val, exc_tb):
         logger.info('closing')
         self.__exit__(exc_type, exc_val, exc_tb)
+
+    def get_all_drivers(self):
+        if self._firefox.current_url != self.DRIVERS_URL:
+            self._firefox.get(self.DRIVERS_URL)
+
+        selector = 'tr.ant-table-row > td:nth-child({}) > a:nth-child(1)'
+
+        sleep(5)
+        drivers = []
+        names = self._firefox.find_elements_by_css_selector(selector.format(3))
+        phones = self._firefox.find_elements_by_css_selector(selector.format(4))
+
+        for name_info, phone in zip(names, phones):
+            surname, name, patronymic = name_info.text.split()
+            drivers.append({
+                'name': name,
+                'surname': surname,
+                'patronymic': patronymic,
+                'phone': phone.text,
+            })
+
+        # TODO: доделать переход по пагинации
+        return drivers
 
     def get_drivers_from_map(self):
         """
@@ -125,3 +148,13 @@ class SeleniumClient:
         sleep(1)
         password_input.submit()
         sleep(1)
+
+
+if __name__ == '__main__':
+
+    from config import YANDEX_LOGIN, YANDEX_PASSWORD
+
+    selenium_client = SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD)
+    drivers = selenium_client.get_all_drivers()
+
+    assert drivers is not None

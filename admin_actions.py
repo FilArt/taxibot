@@ -33,34 +33,3 @@ def handle_admin_action(bot: Bot, update: Update):
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text('Доступные команды:', reply_markup=reply_markup)
         return
-
-
-# def add_driver(bot: Bot, update: Update):
-#     """
-#     Регаем водителя
-#     """
-#     driver_tg_id = update.effective_user.id
-#     if is_authenticated(driver_tg_id):
-#         update.effective_chat.send_message("Уже авторизован.")
-#         return
-#
-#     driver_tg_name = update.effective_user.name
-#
-#     yc = YandexClient()
-#
-#     job_phone = update.message.text.split().pop()  # маппим по тлф
-#     drivers_info_list = yc.get_drivers_info_list()
-#     driver_info = [d_info for d_info in drivers_info_list if d_info['telephone'] == job_phone]
-#
-#     if driver_info:
-#         driver_info = driver_info.pop()
-#         driver_info['tg_name'] = driver_tg_name
-#         driver_info['tg_id'] = driver_tg_id
-#         driver = Driver(driver_info)
-#         register_driver(driver)
-#         update.effective_chat.send_message("Вы успешно зарегистрированы.")
-#         update.effective_chat.send_message('Проверьте свои данные:\n{}'.format(
-#             '\n'.join((driver_info['name'], driver_info['surname'])),
-#         ))
-#     else:
-#         update.effective_chat.send_message("Не удалось найти ваш номер. Пример формата: +71234567890")

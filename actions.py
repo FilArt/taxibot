@@ -1,14 +1,15 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Voice
 from telegram.bot import Bot
+from telegram.ext import Job, JobQueue
 from telegram.update import Update
 
 from actions_helpers import ask_register_driver, register_driver
-from config import ASK_FOR_LUNCH, CANCEL_TESTIFY, LUNCH_TIMEOUT, DEBUG, SECRETS_FN, ADMIN_KEY
+from config import ASK_FOR_LUNCH, CANCEL_TESTIFY, LUNCH_TIMEOUT, SECRETS_FN, ADMIN_KEY
 from fs_store import Store
+from jobs import update_drivers
 from punishment import Punisher
-from taxopark import Taxopark, InvalidTelephone
+from taxopark import Taxopark
 from utils import is_admin, is_driver
-from yandex_client import YandexClient
 
 # buttons-actions
 REGISTER_DRIVER = "register_driver"
@@ -50,15 +51,36 @@ def start(bot: Bot, update: Update):
         keyboard = [
             [
                 InlineKeyboardButton("Зарегистрировать водителя", callback_data=REGISTER_DRIVER),
+                InlineKeyboardButton("Обновить список водителей", callback_data=UPDATE_DRIVERS_LIST),
             ],
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         update.message.reply_text('Выберите команду:', reply_markup=reply_markup)
 
     elif is_driver(tg_id):
-        pass
+        keyboard = [
+            [
+                InlineKeyboardButton("Мой id", callback_data='me'),
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text('Получить свой id:', reply_markup=reply_markup)
+
+        voice = update.effective_message.voice.file_id
+        duration = update.effective_message.voice.duration
+        voice_reply = '{}_{}'.format(voice, duration)
+        keyboard = [
+            [
+                InlineKeyboardButton("Отправить", callback_data=voice_reply),
+                InlineKeyboardButton("Записать новое", callback_data=CANCEL_TESTIFY),
+                InlineKeyboardButton("Уйти на обед", callback_data=ASK_FOR_LUNCH)
+            ],
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        update.message.reply_text('Please choose:', reply_markup=reply_markup)
+
     else:
-        pass
+        raise Exception("STOP")
 
 
 def query(bot: Bot, update: Update):
@@ -73,20 +95,25 @@ def query(bot: Bot, update: Update):
             else:
                 update.effective_chat.send_message("Произошла ошибка. Список водителей пуст.")
 
-        elif choice.startswith(REGISTER_DRIVER):
-            telephone = choice.lstrip(REGISTER_DRIVER)
+        elif choice.isdigit():
+            telephone = choice
             response = register_driver(telephone, tg_id)
             update.effective_chat.send_message(response)
 
-        else:
-            pass
-
+        elif choice == UPDATE_DRIVERS_LIST:
+            job_queue = JobQueue(bot)
+            job_queue.run_once(update_drivers, 0)
+            update.effective_chat.send_message("Обновление водителей запущено")
 
     elif choice in DRIVER_CHOICES:
         pass
 
     else:
         pass
+
+
+def process_voice(bot: Bot, update: Update):
+    choice = update.callback_query
 
     if choice == CANCEL_TESTIFY:
         update.effective_chat.send_message(choice)
@@ -101,29 +128,6 @@ def query(bot: Bot, update: Update):
         dispatcher_chat_id = Taxopark.get_dispatcher_chat_id()
         voice, duration = choice.split('_')
         bot.send_voice(dispatcher_chat_id, Voice(voice, duration))
-
-
-def accept_testify(bot: Bot, update: Update):
-    keyboard = [
-        [
-            InlineKeyboardButton("Мой id", callback_data='me'),
-        ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('Получить свой id:', reply_markup=reply_markup)
-
-    voice = update.effective_message.voice.file_id
-    duration = update.effective_message.voice.duration
-    voice_reply = '{}_{}'.format(voice, duration)
-    keyboard = [
-        [
-            InlineKeyboardButton("Отправить", callback_data=voice_reply),
-            InlineKeyboardButton("Записать новое", callback_data=CANCEL_TESTIFY),
-            InlineKeyboardButton("Уйти на обед", callback_data=ASK_FOR_LUNCH)
-        ],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text('Please choose:', reply_markup=reply_markup)
 
 
 def login(bot: Bot, update: Update):
@@ -149,27 +153,3 @@ def login(bot: Bot, update: Update):
 
     else:
         update.effective_chat.send_message("Неверный пароль.")
-
-
-def get_drivers_statuses(bot: Bot, update: Update):
-    if not is_admin(update.effective_user.id):
-        return
-
-    yc = YandexClient()
-    statuses = '\n'.join([
-        f"{d['name']} {d['surname']} - {d['status']}"
-        for d in yc.get_drivers_info_list()
-    ])
-    update.effective_chat.send_message(statuses)
-
-
-def get_drivers_info(bot: Bot, update: Update):
-    if DEBUG:
-        yc = YandexClient()
-        drivers = yc.get_drivers_info_list()
-        update.effective_chat.send_message('\n'.join(
-            [
-                '{} {} - {} - {}'.format(d['name'], d['surname'], d['telephone'], d['status'])
-                for d in drivers
-            ]
-        ))
