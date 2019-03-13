@@ -36,16 +36,20 @@ PENALTIES = {
 }
 
 # jobs configuration
-CHECK_DRIVERS_TASK_INTERVAL = 5 * 600
+CHECK_DRIVERS_TASK_INTERVAL = 5
+MAX_BUSY_MINUTES = 5  # в минутах - все остальное в секундах
 
 # constants
 TIME_FORMAT = '%H:%M:%S'
-DRIVERS_SECRETS_FN = 'local_storage/drivers/{name}{surname}{tg_id}'
+DRIVERS_SECRETS_FN = 'local_storage/drivers/{name}{surname}'
+DRIVERS_SYMLINKS = 'local_storage/drivers/{tg_id}'
 ALL_DRIVERS_FN = 'local_storage/all_drivers'
 SECRETS_FN = 'local_storage/secrets'
 OLD_DRIVERS_STATUSES_FN = 'local_storage/old_drivers_statuses'
 NEW_DRIVERS_STATUSES_FN = 'local_storage/new_drivers_statuses'
 TELEGRAM_IDS_PATH = 'local_storage/secrets/telegram_ids/{}'
+PAYLOADS_PATH = 'local_storage/payloads/'
+PAYLOAD_FN = 'local_storage/payloads/{phone}'
 
 # conversations
 ASK_FOR_LUNCH = 'Попрошу отпустить вас на обед.'  # Ответ водителю, который отпрашивается на обед

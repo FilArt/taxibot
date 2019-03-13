@@ -2,37 +2,11 @@ from datetime import datetime
 from telegram.bot import Bot
 from telegram.ext.jobqueue import Job, JobQueue
 
-from config import YANDEX_LOGIN, YANDEX_PASSWORD, CHECK_DRIVERS_TASK_INTERVAL, NEW_DRIVERS_STATUSES_FN, ALL_DRIVERS_FN
-from fs_store import Store
+from config import CHECK_DRIVERS_TASK_INTERVAL
 from log import jobs_logger as logger
 from punishment import Punisher, Punishment
-from selenium_client import SeleniumClient
 from taxopark import Taxopark
 from utils import merge_with_pattern
-
-
-def update_drivers(bot: Bot, job: Job):
-    with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
-        logger.info('updating drivers list')
-        start_middle = datetime.now()
-        drivers = client.get_all_drivers()
-        if drivers:
-            Store.store_failsafe(ALL_DRIVERS_FN, drivers)
-        end_middle = datetime.now()
-        elapsed_middle = end_middle - start_middle
-        logger.info('drivers list update for %i seconds', elapsed_middle.seconds)
-
-
-def fetching_drivers(bot: Bot, job: Job):
-    with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
-        logger.info('fetching drivers')
-        start_main = datetime.now()
-        drivers = client.get_drivers_from_map()
-        if drivers:
-            Store.store_failsafe(NEW_DRIVERS_STATUSES_FN, drivers)
-        end_main = datetime.now()
-        elapsed_main = end_main - start_main
-        logger.info('drivers fetched for %i seconds', elapsed_main.seconds)
 
 
 def process_supervision(bot: Bot, job: Job):
@@ -44,8 +18,13 @@ def process_supervision(bot: Bot, job: Job):
     for payload in payloads:
 
         timeout = payload.timeout
-        if timeout and timeout > 0:
-            continue
+        if timeout:
+            timeout = payload.update_timeout()
+            timeout_set_at = payload.timeout_set_at
+            if timeout and timeout_set_at:
+                passed_minutes = (datetime.now() - timeout_set_at).minute
+                if passed_minutes <= timeout:
+                    continue
 
         penalties = payload.penalties
         punishment = Punishment(penalties)

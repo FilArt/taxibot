@@ -1,9 +1,11 @@
-from typing import List
+from datetime import datetime
+from typing import List, Any
 
-from config import DRIVERS_SECRETS_FN, SECRETS_FN, ALL_DRIVERS_FN
-from driver import Driver
+from config import DRIVERS_SECRETS_FN, SECRETS_FN, YANDEX_LOGIN, YANDEX_PASSWORD, DRIVERS_SYMLINKS
+from driver import Driver, driver_info_factory
 from fs_store import Store
 from log import taxopark_logger as logger
+from selenium_client import SeleniumClient
 
 
 class InvalidTelephone(Exception):
@@ -14,28 +16,50 @@ class Taxopark:
     """
     Локальное хранилище данных водителей (а также их статусов) и админов бота.
     """
+    drivers_info_list_cache: List[Any] = []
+    last_update = datetime.now()
+
     @classmethod
-    def register_driver(cls, telephone: str, tg_id: str):
-        found = False
-        all_drivers = Taxopark.get_all_drivers()
-        for i in range(len(all_drivers)):
-            if all_drivers[i].telephone == telephone:
-                found = True
-                all_drivers[i].tg_id = tg_id
-                break
-
-        if not found:
-            raise InvalidTelephone
-
-        Store.store(ALL_DRIVERS_FN, all_drivers)
+    def register_driver(cls, driver_index: int, tg_name: str, tg_id: int) -> Driver:
+        try:
+            logger.info(f'registering driver {driver_index}')
+            drivers = cls.get_all_drivers_info(refresh=False)
+            d_info = drivers[driver_index]
+            d_info = driver_info_factory(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
+                                         phone=d_info.phone, tg_name=tg_name, tg_id=tg_id)
+            driver = Driver(d_info)
+            driver.save()
+            return driver
+        except Exception as e:
+            logger.exception(e)
+            return e
 
     @classmethod
     def get_driver(cls, name: str = '', surname: str = '', tg_id: str = '') -> Driver:
-        return Store.load(DRIVERS_SECRETS_FN.format(name=name, surname=surname, tg_id=tg_id))
+        if not tg_id and not name and not surname:
+            raise FileNotFoundError("Водитель не зарегистрирован")
+        if tg_id:
+            return Store.load(DRIVERS_SYMLINKS.format(tg_id=tg_id))
+        else:
+            return Store.load(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
 
     @classmethod
-    def get_all_drivers(cls) -> List[Driver]:
-        return Store.load(ALL_DRIVERS_FN)
+    def get_all_drivers_info(cls, refresh=False) -> List[Driver]:
+        if not refresh and cls.drivers_info_list_cache:
+            return cls.drivers_info_list_cache
+
+        logger.info('fetching drivers list')
+        start = datetime.now()
+        with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
+            drivers_info = client.get_all_drivers_info()
+            end = datetime.now()
+        elapsed = end - start
+        logger.info('drivers list fetched for %i seconds', elapsed.seconds)
+
+        cls.drivers_info_list_cache = drivers_info
+        cls.last_update = datetime.now()
+
+        return drivers_info
 
     @classmethod
     def get_registered_admins(cls) -> List:
@@ -52,14 +76,7 @@ class Taxopark:
         except FileNotFoundError:
             logger.info('creating secrets file')
             Store.store_failsafe(SECRETS_FN, {})
-
-    @classmethod
-    def get_registered_drivers(cls) -> List[Driver]:
-        return [d for d in Store.load(ALL_DRIVERS_FN) if d.tg_id is not None]
-
-    @classmethod
-    def get_unregistered_drivers(cls) -> List[Driver]:
-        return [d for d in Store.load(ALL_DRIVERS_FN) if d.tg_id is None]
+            return Store.load(SECRETS_FN)
 
     @classmethod
     def get_dispatcher_chat_id(cls) -> str:

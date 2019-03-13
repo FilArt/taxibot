@@ -7,7 +7,8 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
 
-from config import TIME_FORMAT, HEADLESS
+from config import TIME_FORMAT, HEADLESS, MAX_BUSY_MINUTES
+from driver import driver_info_factory
 from log import selenium_logger as logger
 
 
@@ -50,7 +51,8 @@ class SeleniumClient:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logger.exception(exc_val)
+        if exc_val:
+            logger.exception(exc_val)
         self._user_list_tag = None
         self._phone_list_selector = None
         self._busy_button_pressed = False
@@ -60,28 +62,24 @@ class SeleniumClient:
         logger.info('closing')
         self.__exit__(exc_type, exc_val, exc_tb)
 
-    def get_all_drivers(self):
+    def get_all_drivers_info(self):
         if self._firefox.current_url != self.DRIVERS_URL:
             self._firefox.get(self.DRIVERS_URL)
 
         selector = 'tr.ant-table-row > td:nth-child({}) > a:nth-child(1)'
 
         sleep(5)
-        drivers = []
+        result = []
         names = self._firefox.find_elements_by_css_selector(selector.format(3))
         phones = self._firefox.find_elements_by_css_selector(selector.format(4))
 
         for name_info, phone in zip(names, phones):
             surname, name, patronymic = name_info.text.split()
-            drivers.append({
-                'name': name,
-                'surname': surname,
-                'patronymic': patronymic,
-                'phone': phone.text,
-            })
+            result.append(driver_info_factory(name=name, surname=surname, patronymic=patronymic,
+                                              phone=phone.text, tg_name='', tg_id=''))
 
         # TODO: доделать переход по пагинации
-        return drivers
+        return result
 
     def get_drivers_from_map(self):
         """
@@ -106,30 +104,26 @@ class SeleniumClient:
 
         user_list = user_list_tag.text.split('\n')
 
-        users = []
+        logger.info('adding users')
+        payloads = []
         for i in range(0, len(user_list), 4):
             chunk = tuple(user_list[i:i+4][1:])
-            fullname, status, minutes = chunk
-            name, surname, patronymic = fullname.split()
-            logger.info('adding user %s', surname)
-            users.append({
-                'name': name,
-                'surname': surname,
-                'patronimyc': patronymic,
+            _, status, minutes = chunk
+            payloads.append({
                 'status': status,
-                'minutes': minutes.split()[0],
+                'minutes': int(minutes.split()[0]),
                 'time': datetime.now().strftime(TIME_FORMAT),
             })
 
-        for i in range(1, len(users) + 1):
-            logger.info('add phone number to user %s', users[i-1]['surname'])
+        logger.info('adding phone numbers')
+        for i in range(1, len(payloads) + 1):
             selector = self.PHONE_TAGS_XPATH.format(i)
             phone_tag = self._firefox.find_element_by_xpath(selector)
             href = phone_tag.get_attribute('href')
-            phone_number = href.split(':')[1]
-            users[i - 1]['telephone'] = phone_number
+            phone = href.split(':')[1]
+            payloads[i - 1]['phone'] = phone
 
-        return users
+        return payloads
 
     def _submit_login(self):
         logger.info('login...')
@@ -148,13 +142,3 @@ class SeleniumClient:
         sleep(1)
         password_input.submit()
         sleep(1)
-
-
-if __name__ == '__main__':
-
-    from config import YANDEX_LOGIN, YANDEX_PASSWORD
-
-    selenium_client = SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD)
-    drivers = selenium_client.get_all_drivers()
-
-    assert drivers is not None

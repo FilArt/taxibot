@@ -1,19 +1,23 @@
 from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler
 from telegram.ext.filters import Filters
 
-from actions import login, start, query, process_voice
+from actions import login, start, query, process_voice, acquire_driver_secrets, get_my_id
 from config import DEBUG
 
 login_handler = CommandHandler('login', login)
 voice_msg_handler = MessageHandler(Filters.voice, process_voice)
 start_handler = CommandHandler('start', start)
 query_handler = CallbackQueryHandler(query)
+driver_secrets_handler = CommandHandler('add', acquire_driver_secrets)
+get_my_id_handler = CommandHandler('id', get_my_id)
 
 handlers = (
     login_handler,
     voice_msg_handler,
     start_handler,
     query_handler,
+    driver_secrets_handler,
+    get_my_id_handler,
 )
 
 if DEBUG:
