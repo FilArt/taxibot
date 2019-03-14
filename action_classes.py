@@ -2,7 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Bot, Update, Vo
 from typing import List, Union
 
 from config import LUNCH_TIMEOUT, ADMIN_KEY, SECRETS_FN
-from driver import Driver, driver_info_factory
+from driver import Driver
 from fs_store import Store
 from log import actions_logger as logger
 from taxopark import Taxopark
@@ -14,22 +14,6 @@ class BaseAction:
         self.bot = bot
         self.update = update
         self.tg_id = tg_id
-
-    def start(self):
-        keyboard = [[InlineKeyboardButton("/id", callback_data='/id')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        self.update.message.reply_text('Please choose:', reply_markup=reply_markup)
-
-    def query(self, choice: str):
-        if choice == '/id':
-            self.update.effective_chat.send_message(f'Ваш Telegram id: {self.tg_id}')
-
-
-class AdminAction(BaseAction):
-    DRIVERS_LIST = 'driversList'
-    ASK_REGISTER_DRIVER = 'askRegisterDriver'
-    REGISTER_DRIVER = "registerDriver"
-    GO_TO_LUNCH = "lunch"
 
     def login(self):
         word = self.update.message.text.split().pop()
@@ -46,6 +30,22 @@ class AdminAction(BaseAction):
 
         else:
             self.update.effective_chat.send_message("Неверный пароль.")
+
+    def start(self):
+        keyboard = [[InlineKeyboardButton("/id", callback_data='/id')]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        self.update.message.reply_text('Please choose:', reply_markup=reply_markup)
+
+    def query(self, choice: str):
+        if choice == '/id':
+            self.update.effective_chat.send_message(f'Ваш Telegram id: {self.tg_id}')
+
+
+class AdminAction(BaseAction):
+    DRIVERS_LIST = 'driversList'
+    ASK_REGISTER_DRIVER = 'askRegisterDriver'
+    REGISTER_DRIVER = "registerDriver"
+    GO_TO_LUNCH = "lunch"
 
     def start(self):
         keyboard = [[InlineKeyboardButton("Зарегистрировать водителя", callback_data=self.ASK_REGISTER_DRIVER),
@@ -70,7 +70,16 @@ class AdminAction(BaseAction):
             )
 
     def _driver_list(self):
-        drivers = Taxopark.get_all_drivers_info()
+        drivers_info = Taxopark.get_all_drivers_info()
+        drivers = []
+        for driver_info in drivers_info:
+            name, surname = driver_info.name, driver_info.surname
+            if Taxopark.is_registered(name, surname):
+                driver = Taxopark.get_driver(name=driver_info.name, surname=driver_info.surname)
+            else:
+                driver = Driver(driver_info)
+            drivers.append(driver)
+
         reply_markup = self._drivers_to_reply_markup(drivers, self.update.effective_message.message_id)
         self.update.effective_message.reply_text('Последний сохраненный список водителей:', reply_markup=reply_markup)
 
@@ -80,7 +89,7 @@ class AdminAction(BaseAction):
         reply_markup = self._drivers_to_reply_markup(drivers, self.update.effective_message.message_id)
         self.update.effective_message.reply_text('Выберите водителя:', reply_markup=reply_markup)
 
-    def _drivers_to_reply_markup(self, drivers: List[driver_info_factory], message_id: int) -> InlineKeyboardMarkup:
+    def _drivers_to_reply_markup(self, drivers: List[Driver], message_id: int) -> InlineKeyboardMarkup:
         """
         Вернуть список водителей в виде кнопок
         """

@@ -49,6 +49,9 @@ OLD_DRIVERS_STATUSES_FN = 'local_storage/old_drivers_statuses'
 NEW_DRIVERS_STATUSES_FN = 'local_storage/new_drivers_statuses'
 TELEGRAM_IDS_PATH = 'local_storage/secrets/telegram_ids/{}'
 PAYLOADS_PATH = 'local_storage/payloads/'
-PAYLOAD_FN = 'local_storage/payloads/{phone}'
+PAYLOAD_FN = 'local_storage/payloads/{}'
 
-from config_local import *
+try:
+    from config_local import *
+except ImportError:
+    pass

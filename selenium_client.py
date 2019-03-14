@@ -6,13 +6,18 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
+from typing import List
 
-from config import TIME_FORMAT, HEADLESS, MAX_BUSY_MINUTES
-from driver import driver_info_factory
+from config import HEADLESS
+from driver import driver_info_factory, driver_status_factory
 from log import selenium_logger as logger
+from payload import Payload
 
 
 class SeleniumClient:
+    BROWSER = None
+    AUTHORISED = False
+    LAUNCHED = False
     BASE_URL = 'https://fleet.taxi.yandex.ru/'
     AUTH_URL = 'https://passport.yandex.ru/auth'
     TAXOPARK_URL = 'https://fleet.taxi.yandex.ru/map'
@@ -26,9 +31,16 @@ class SeleniumClient:
 
     USER_LIST_TAG = 'user-list'
 
+    login = None
+    password = None
+
+    @classmethod
+    def trigger(cls):
+        cls.LAUNCHED = not cls.LAUNCHED
+
     def __init__(self, login, password):
-        self.login = login
-        self.password = password
+        SeleniumClient.login = login
+        SeleniumClient.password = password
 
         self._firefox = None
         self._user_list_tag = None
@@ -39,30 +51,31 @@ class SeleniumClient:
         """
         Возвращает авторизованный драйвер
         """
-        logger.info('launching...')
+        while SeleniumClient.LAUNCHED:
+            sleep(1)
+        SeleniumClient.trigger()
+        logger.info('launching')
 
-        options = Options()
-        options.headless = True if HEADLESS else False
-        self._firefox = webdriver.Firefox(options=options)
-        self._firefox.get(self.AUTH_URL)
-        self._submit_login()
-        self._submit_password()
-        self._firefox.get(self.BASE_URL)
+        if not SeleniumClient.BROWSER:
+            options = Options()
+            options.headless = True if HEADLESS else False
+            SeleniumClient.BROWSER = webdriver.Firefox(options=options)
+            SeleniumClient.BROWSER.get(self.AUTH_URL)
+            SeleniumClient._submit_login()
+            SeleniumClient._submit_password()
+            SeleniumClient.AUTHORISED = True
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_val:
             logger.exception(exc_val)
-        self._user_list_tag = None
-        self._phone_list_selector = None
-        self._busy_button_pressed = False
-        self._firefox.quit()
+        # self._user_list_tag = None
+        # self._phone_list_selector = None
+        # self._busy_button_pressed = False
+        # self._firefox.quit()
+        SeleniumClient.trigger()
 
-    def close(self, exc_type, exc_val, exc_tb):
-        logger.info('closing')
-        self.__exit__(exc_type, exc_val, exc_tb)
-
-    def get_all_drivers_info(self):
+    def get_all_drivers_info(self) -> List[driver_info_factory]:
         if self._firefox.current_url != self.DRIVERS_URL:
             self._firefox.get(self.DRIVERS_URL)
 
@@ -75,70 +88,80 @@ class SeleniumClient:
 
         for name_info, phone in zip(names, phones):
             surname, name, patronymic = name_info.text.split()
-            result.append(driver_info_factory(name=name, surname=surname, patronymic=patronymic,
-                                              phone=phone.text, tg_name='', tg_id=''))
+            result.append(driver_info_factory(name=name, surname=surname, patronymic=patronymic, phone=phone.text,
+                                              status=None))
 
         # TODO: доделать переход по пагинации
         return result
 
-    def get_drivers_from_map(self):
+    @classmethod
+    def get_drivers_from_map(self) -> List[driver_info_factory]:
         """
         Возвращает дикты с водителями, которые доступны во вьюхе /maps
         Этот метод удобен для сбора занятых водителей
         """
         logger.info('getting drivers from map')
 
-        if not self._firefox.current_url == self.TAXOPARK_URL:
-            self._firefox.get(self.TAXOPARK_URL)
+        if not self.BROWSER.current_url == self.TAXOPARK_URL:
+            self.BROWSER.get(self.TAXOPARK_URL)
 
         if not self._busy_button_pressed:
             sleep(1)
-            self._firefox.find_element_by_xpath(self.BUSY_BUTTON_XPATH).click()
+            self.BROWSER.find_element_by_xpath(self.BUSY_BUTTON_XPATH).click()
             self._busy_button_pressed = True
 
         if self._user_list_tag:
             user_list_tag = self._user_list_tag
         else:
-            user_list_tag = self._firefox.find_element_by_class_name(self.USER_LIST_TAG)
+            user_list_tag = self.BROWSER.find_element_by_class_name(self.USER_LIST_TAG)
             self._user_list_tag = user_list_tag
 
         user_list = user_list_tag.text.split('\n')
 
-        logger.info('adding users')
-        payloads = []
+        logger.info('fetching drivers info from map')
+        now = datetime.now()
+        drivers_info_dicts = []
         for i in range(0, len(user_list), 4):
             chunk = tuple(user_list[i:i+4][1:])
-            _, status, minutes = chunk
-            payloads.append({
-                'status': status,
-                'minutes': int(minutes.split()[0]),
-                'time': datetime.now().strftime(TIME_FORMAT),
-            })
+            fullname, status, minutes = chunk
+            minutes = int(minutes.split()[0])
+            name, surname, patronymic = fullname.split()
+            logger.info('adding user %s', surname)
+            driver_status = driver_status_factory(status, minutes, now)
+            drivers_info_dicts.append(dict(
+                name=name,
+                surname=surname,
+                patronymic=patronymic,
+                status=driver_status,
+            ))
 
         logger.info('adding phone numbers')
-        for i in range(1, len(payloads) + 1):
+        for i in range(1, len(drivers_info_dicts) + 1):
             selector = self.PHONE_TAGS_XPATH.format(i)
-            phone_tag = self._firefox.find_element_by_xpath(selector)
+            phone_tag = self.BROWSER.find_element_by_xpath(selector)
             href = phone_tag.get_attribute('href')
             phone = href.split(':')[1]
-            payloads[i - 1]['phone'] = phone
+            drivers_info_dicts[i - 1]['phone'] = phone
 
-        return payloads
+        return [driver_info_factory(name=d['name'], surname=d['surname'], patronymic=d['patronymic'], phone=d['phone'],
+                                    status=d['status']) for d in drivers_info_dicts]
 
-    def _submit_login(self):
-        logger.info('login...')
-        login_input = WebDriverWait(self._firefox, 10).until(
-            ec.presence_of_element_located((By.ID, self.LOGIN_ID))
+    @classmethod
+    def _submit_login(cls):
+        logger.info('login')
+        login_input = WebDriverWait(cls.BROWSER, 10).until(
+            ec.presence_of_element_located((By.ID, cls.LOGIN_ID))
         )
-        login_input.send_keys(self.login)
+        login_input.send_keys(cls.login)
         sleep(1)
         login_input.submit()
         sleep(1)
 
-    def _submit_password(self):
-        password_input = WebDriverWait(self._firefox, 10).until(
-            ec.presence_of_element_located((By.ID, self.PASSWORD_ID)))
-        password_input.send_keys(self.password)
+    @classmethod
+    def _submit_password(cls):
+        password_input = WebDriverWait(cls.BROWSER, 10).until(
+            ec.presence_of_element_located((By.ID, cls.PASSWORD_ID)))
+        password_input.send_keys(cls.password)
         sleep(1)
         password_input.submit()
         sleep(1)

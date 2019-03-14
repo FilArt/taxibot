@@ -10,13 +10,13 @@ from utils import merge_with_pattern
 
 
 def process_supervision(bot: Bot, job: Job):
-    logger.info('Checking drivers...')
+    logger.info('checking drivers')
     payloads = Punisher.fetch_and_update_busy_drivers_payloads()
     if not payloads:
+        logger.info('busy drivers not found')
         return
 
     for payload in payloads:
-
         timeout = payload.timeout
         if timeout:
             timeout = payload.update_timeout()
@@ -43,11 +43,12 @@ def send_warning(bot: Bot, job: Job):
     Послать водителю предупреждение.
     """
     punishment, payload = job.context
-    phone = payload.phone
-    logger.info("Sending warning to %s", phone)
+    name, surname = payload.name, payload.surname
+    logger.info("Sending warning to %s %s", name, surname)
     warning = punishment.penalty['message']
     tg_id = Taxopark.get_driver(name=name, surname=surname).tg_id
     bot.send_message(tg_id, warning)
+    logger.info('warning for %s %s sent', name, surname)
 
 
 def call_dispatcher(bot: Bot, job: Job):
@@ -67,5 +68,5 @@ def call_dispatcher(bot: Bot, job: Job):
 
 
 def run_jobs(job_queue: JobQueue):
-    job_queue.run_once(process_supervision, 0)
-    # job_queue.run_repeating(process_supervision, interval=CHECK_DRIVERS_TASK_INTERVAL)
+    # job_queue.run_once(process_supervision, 0)
+    job_queue.run_repeating(process_supervision, interval=CHECK_DRIVERS_TASK_INTERVAL)
