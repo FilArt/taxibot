@@ -5,6 +5,7 @@ from config import DRIVERS_SECRETS_FN, SECRETS_FN, YANDEX_LOGIN, YANDEX_PASSWORD
 from driver import Driver, driver_info_factory
 from fs_store import Store
 from log import taxopark_logger as logger
+from punishment import Payload
 from selenium_client import SeleniumClient
 
 
@@ -21,30 +22,26 @@ class Taxopark:
 
     @classmethod
     def register_driver(cls, driver_index: int, tg_name: str, tg_id: int) -> Driver:
-        try:
-            logger.info(f'registering driver {driver_index}')
-            drivers = cls.get_all_drivers_info(refresh=False)
-            d_info = drivers[driver_index]
-            d_info = driver_info_factory(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
-                                         phone=d_info.phone, tg_name=tg_name, tg_id=tg_id)
-            driver = Driver(d_info)
-            driver.save()
-            return driver
-        except Exception as e:
-            logger.exception(e)
-            return e
+        logger.info(f'registering driver {driver_index}')
+        drivers = cls.get_all_drivers_info(refresh=False)
+        d_info = drivers[driver_index]
+        d_info = driver_info_factory(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
+                                     phone=d_info.phone, tg_name=tg_name, tg_id=tg_id)
+        driver = Driver(d_info)
+        driver.save()
+        return driver
 
     @classmethod
-    def get_driver(cls, name: str = '', surname: str = '', tg_id: str = '') -> Driver:
-        if not tg_id and not name and not surname:
-            raise FileNotFoundError("Водитель не зарегистрирован")
+    def get_driver(cls, name: str = '', surname: str = '', tg_id: int = None) -> Driver:
+        if not tg_id or (not name and not surname):
+            raise Exception("Водитель не зарегистрирован")
         if tg_id:
             return Store.load(DRIVERS_SYMLINKS.format(tg_id=tg_id))
         else:
             return Store.load(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
 
     @classmethod
-    def get_all_drivers_info(cls, refresh=False) -> List[Driver]:
+    def get_all_drivers_info(cls, refresh=False) -> List[driver_info_factory]:
         if not refresh and cls.drivers_info_list_cache:
             return cls.drivers_info_list_cache
 
@@ -82,3 +79,9 @@ class Taxopark:
     def get_dispatcher_chat_id(cls) -> str:
         # TODO: добавить регистрацию для диспетчеров или захардкодить
         return cls.get_registered_admins()[0]
+
+    @classmethod
+    def set_timeout(cls, driver, timeout: int):
+        payload = Payload.get_payload(driver.phone)
+        payload.timeout = timeout
+        payload.save()

@@ -1,10 +1,8 @@
 import os
-
 from datetime import datetime
-from typing import List, Optional, Any
+from typing import List, Optional
 
-from config import (PENALTIES, OLD_DRIVERS_STATUSES_FN, CHECK_DRIVERS_TASK_INTERVAL, YANDEX_LOGIN, YANDEX_PASSWORD,
-                    MAX_BUSY_MINUTES, PAYLOADS_PATH, PAYLOAD_FN)
+from config import PENALTIES, YANDEX_LOGIN, YANDEX_PASSWORD, MAX_BUSY_MINUTES, PAYLOAD_FN
 from fs_store import Store
 from selenium_client import SeleniumClient
 
@@ -19,6 +17,9 @@ class Payload:
         self.penalties = penalties
         self.timeout = timeout
         self.timeout_set_at = timeout_set_at
+
+    def __str__(self):
+        return f'{self.penalties} penalties for {self.phone}'
 
     @classmethod
     def get_payload(cls, phone) -> Optional['Payload']:
@@ -49,13 +50,7 @@ class Punisher:
     Класс для раздачи пиздюлей
     """
     @classmethod
-    def set_timeout(cls, driver, timeout: int):
-        payload = Payload.get_payload(driver.phone)
-        payload.timeout = timeout
-        payload.save()
-
-    @classmethod
-    def fetch_and_update_busy_drivers_payloads(cls):
+    def fetch_and_update_busy_drivers_payloads(cls) -> List[Payload]:
         new_busy_payloads = cls._get_new_busy_payloads()
 
         current_busy_payloads = []
@@ -92,6 +87,12 @@ class Punishment:
     """
     def __init__(self, penalty: int):
         self.penalty = PENALTIES[penalty]
+
+    def __str__(self):
+        return str(self.penalty)
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
     def is_warning(self):

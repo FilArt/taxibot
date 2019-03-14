@@ -43,14 +43,11 @@ def send_warning(bot: Bot, job: Job):
     Послать водителю предупреждение.
     """
     punishment, payload = job.context
-    name, surname = payload.name, payload.surname
-    logger.info("Sending warning to %s %s", name, surname)
+    phone = payload.phone
+    logger.info("Sending warning to %s", phone)
     warning = punishment.penalty['message']
-    user_id = Taxopark.get_driver(name=name, surname=surname).tg_id
-    bot.send_message(
-        user_id,
-        warning,
-    )
+    tg_id = Taxopark.get_driver(name=name, surname=surname).tg_id
+    bot.send_message(tg_id, warning)
 
 
 def call_dispatcher(bot: Bot, job: Job):
@@ -66,11 +63,9 @@ def call_dispatcher(bot: Bot, job: Job):
     message_pattern = punishment.penalty['message']
     message = merge_with_pattern(message_pattern, driver.to_dict())
 
-    bot.send_message(
-        Taxopark.get_dispatcher_chat_id(),
-        message,
-    )
+    bot.send_message(Taxopark.get_dispatcher_chat_id(), message)
 
 
 def run_jobs(job_queue: JobQueue):
-    job_queue.run_repeating(process_supervision, interval=CHECK_DRIVERS_TASK_INTERVAL)
+    job_queue.run_once(process_supervision, 0)
+    # job_queue.run_repeating(process_supervision, interval=CHECK_DRIVERS_TASK_INTERVAL)

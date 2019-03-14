@@ -34,3 +34,12 @@ class Driver:
     @staticmethod
     def get_symlink_path(tg_id: int):
         return DRIVERS_SYMLINKS.format(tg_id=tg_id)
+
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'surname': self.surname,
+            'phone': self.phone,
+            'tg_name': self.tg_name,
+            'tg_id': self.tg_id,
+        }

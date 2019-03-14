@@ -36,7 +36,7 @@ PENALTIES = {
 }
 
 # jobs configuration
-CHECK_DRIVERS_TASK_INTERVAL = 5
+CHECK_DRIVERS_TASK_INTERVAL = 5 * 60
 MAX_BUSY_MINUTES = 5  # в минутах - все остальное в секундах
 
 # constants
@@ -50,9 +50,5 @@ NEW_DRIVERS_STATUSES_FN = 'local_storage/new_drivers_statuses'
 TELEGRAM_IDS_PATH = 'local_storage/secrets/telegram_ids/{}'
 PAYLOADS_PATH = 'local_storage/payloads/'
 PAYLOAD_FN = 'local_storage/payloads/{phone}'
-
-# conversations
-ASK_FOR_LUNCH = 'Попрошу отпустить вас на обед.'  # Ответ водителю, который отпрашивается на обед
-CANCEL_TESTIFY = 'Слушаю.'  # Ответ водителю, когда он не захотел отправлять аудио. Возможно, хочет заново записать.
 
 from config_local import *
