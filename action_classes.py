@@ -1,12 +1,27 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Bot, Update, Voice
-from typing import List, Union
+from typing import Union, List
 
 from config import LUNCH_TIMEOUT, ADMIN_KEY, SECRETS_FN
 from driver import Driver
 from fs_store import Store
 from log import actions_logger as logger
 from taxopark import Taxopark
-from utils import is_admin, is_driver
+
+
+def drivers_to_reply_markup(drivers: List[Driver], message_id: int, command_prefix: str) -> InlineKeyboardMarkup:
+    """
+    Вернуть список водителей в виде кнопок
+    """
+    def get_text(d: Driver, index):
+        return f"{index + 1}. {d.name} {d.surname} {d.tg_name or ''} {d.tg_id or ''}"
+
+    def get_callback(d: Driver, index):
+        return f'{command_prefix}_{message_id}_{index}_{d.tg_name}_{d.tg_id}'
+
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(get_text(d, drivers.index(d)), callback_data=get_callback(d, drivers.index(d)))]
+         for d in drivers]
+    )
 
 
 class BaseAction:
@@ -70,39 +85,15 @@ class AdminAction(BaseAction):
             )
 
     def _driver_list(self):
-        drivers_info = Taxopark.get_all_drivers_info()
-        drivers = []
-        for driver_info in drivers_info:
-            name, surname = driver_info.name, driver_info.surname
-            if Taxopark.is_registered(name, surname):
-                driver = Taxopark.get_driver(name=driver_info.name, surname=driver_info.surname)
-            else:
-                driver = Driver(driver_info)
-            drivers.append(driver)
-
-        reply_markup = self._drivers_to_reply_markup(drivers, self.update.effective_message.message_id)
+        drivers = Taxopark.get_all_drivers(refresh=False)
+        reply_markup = drivers_to_reply_markup(drivers, self.update.effective_message.message_id, self.REGISTER_DRIVER)
         self.update.effective_message.reply_text('Последний сохраненный список водителей:', reply_markup=reply_markup)
 
     def _ask_register_driver(self):
         self.update.effective_chat.send_message("Получаю список водителей, ждите... (примерно 10-30 секунд)")
-        drivers = Taxopark.get_all_drivers_info()
-        reply_markup = self._drivers_to_reply_markup(drivers, self.update.effective_message.message_id)
+        drivers = Taxopark.get_all_drivers(refresh=True)
+        reply_markup = drivers_to_reply_markup(drivers, self.update.effective_message.message_id, self.REGISTER_DRIVER)
         self.update.effective_message.reply_text('Выберите водителя:', reply_markup=reply_markup)
-
-    def _drivers_to_reply_markup(self, drivers: List[Driver], message_id: int) -> InlineKeyboardMarkup:
-        """
-        Вернуть список водителей в виде кнопок
-        """
-        def get_text(d: Driver, index):
-            return f"{index + 1}. {d.name} {d.surname} {d.tg_name or ''} {d.tg_id or ''}"
-
-        def get_callback(d: Driver, index):
-            return f'{self.REGISTER_DRIVER}_{message_id}_{index}_{d.tg_name}_{d.tg_id}'
-
-        return InlineKeyboardMarkup(
-            [[InlineKeyboardButton(get_text(d, drivers.index(d)), callback_data=get_callback(d, drivers.index(d)))]
-             for d in drivers]
-        )
 
 
 class DriverAction(BaseAction):
@@ -150,15 +141,15 @@ class DriverAction(BaseAction):
         # TODO: добавить проверку через диспетчера
         dispatcher_id = Taxopark.get_dispatcher_chat_id()
         driver = Taxopark.get_driver(tg_id=self.tg_id)
-        Taxopark.set_timeout(driver, LUNCH_TIMEOUT)
+        Taxopark.set_timeout(driver.name, driver.surname, LUNCH_TIMEOUT)
         self.bot.send_message(dispatcher_id, "NOT IMPLEMENTED")
 
 
 def get_action_class(bot: Bot, update: Update) -> Union[BaseAction, DriverAction, AdminAction]:
     tg_id = update.effective_user.id
-    if is_admin(tg_id):
+    if tg_id in Taxopark.get_registered_admins():
         return AdminAction(bot, update, tg_id)
-    elif is_driver(tg_id):
+    elif tg_id in Taxopark.get_registered_drivers_tg_ids():
         return DriverAction(bot, update, tg_id)
     else:
         return BaseAction(bot, update, tg_id)

@@ -2,7 +2,7 @@ from telegram.bot import Bot
 from telegram.update import Update
 
 from action_classes import get_action_class
-from utils import is_admin
+from taxopark import Taxopark
 
 
 def login(bot: Bot, update: Update):
@@ -10,7 +10,7 @@ def login(bot: Bot, update: Update):
     Добавить новую учетную запись администратора
     """
     tg_id = update.effective_user.id
-    if is_admin(tg_id):
+    if tg_id in Taxopark.get_registered_drivers_tg_ids():
         update.effective_chat.send_message("Уже авторизован.")
         return
 

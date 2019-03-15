@@ -1,10 +1,10 @@
 import os
-
 from datetime import datetime
-from typing import List, Any
+from typing import List
 
-from config import DRIVERS_SECRETS_FN, SECRETS_FN, YANDEX_LOGIN, YANDEX_PASSWORD, DRIVERS_SYMLINKS
-from driver import Driver, driver_info_factory
+from cache import Cache
+from config import DRIVERS_SECRETS_FN, SECRETS_FN, DRIVERS_SYMLINKS, DRIVERS_INFO_CACHE
+from driver import Driver, DriverInfo
 from fs_store import Store
 from log import taxopark_logger as logger
 from payload import Payload
@@ -15,24 +15,30 @@ class Taxopark:
     """
     Локальное хранилище данных водителей (а также их статусов) и админов бота.
     """
-    drivers_info_list_cache: List[Any] = []
-    last_update = datetime.now()
-
     @classmethod
     def register_driver(cls, driver_index: int, tg_name: str, tg_id: int) -> Driver:
         logger.info(f'registering driver {driver_index}')
-        drivers = cls.get_all_drivers_info(refresh=False)
+        drivers = cls.get_all_drivers_info()
         d_info = drivers[driver_index]
-        d_info = driver_info_factory(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
-                                     phone=d_info.phone, status=None)
-        driver = Driver(d_info)
+        d_info = DriverInfo(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
+                            phone=d_info.phone, status=None)
+        driver = Driver.from_driver_info(d_info)
         driver.tg_id = tg_id
         driver.tg_name = tg_name
         driver.save()
         return driver
 
     @classmethod
-    def is_registered(cls, name: str, surname: str):
+    def set_timeout(cls, name: str, surname: str, timeout: int):
+        payload = cls.get_payload(name, surname)
+        payload.timeout = timeout
+        payload.timeout_set_at = datetime.now()
+        logger.info('set timeout %i for %s %s', timeout, name, surname)
+
+    @classmethod
+    def is_registered(cls, name: str, surname: str, tg_id=None):
+        if tg_id:
+            return os.path.exists(DRIVERS_SYMLINKS.format(tg_id))
         return os.path.exists(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
 
     @classmethod
@@ -45,28 +51,35 @@ class Taxopark:
             return Store.load(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
 
     @classmethod
-    def get_all_drivers_info(cls, refresh=False) -> List[driver_info_factory]:
-        if not refresh and cls.drivers_info_list_cache:
-            return cls.drivers_info_list_cache
+    def get_all_drivers(cls, refresh=True) -> List[Driver]:
+        drivers = []
+        for driver_info in cls.get_all_drivers_info(refresh=refresh):
+            name, surname = driver_info.name, driver_info.surname
+            if Taxopark.is_registered(name, surname):
+                driver = Taxopark.get_driver(name=driver_info.name, surname=driver_info.surname)
+            else:
+                driver = Driver.from_driver_info(driver_info)
+            drivers.append(driver)
+        return drivers
 
+    @classmethod
+    def get_all_drivers_info(cls, refresh=True) -> List[DriverInfo]:
         logger.info('fetching drivers list')
+
+        if refresh is True:
+            Cache.refresh(DRIVERS_INFO_CACHE)
+
         start = datetime.now()
-        with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
-            drivers_info = client.get_all_drivers_info()
-            end = datetime.now()
+        drivers_info = SeleniumClient.get_all_drivers_info()
+        end = datetime.now()
         elapsed = end - start
         logger.info('drivers list fetched for %i seconds', elapsed.seconds)
-
-        cls.drivers_info_list_cache = drivers_info
-        cls.last_update = datetime.now()
-
         return drivers_info
 
     @classmethod
-    def get_drivers_info_from_map(cls) -> List[Payload]:
+    def get_drivers_info_from_map(cls) -> List[DriverInfo]:
         logger.info('fetching drivers from map')
-        with SeleniumClient(YANDEX_LOGIN, YANDEX_PASSWORD) as client:
-            drivers_info = client.get_drivers_from_map()
+        drivers_info = SeleniumClient.get_drivers_from_map()
         return drivers_info
 
     @classmethod

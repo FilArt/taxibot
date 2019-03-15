@@ -2,7 +2,6 @@ from datetime import datetime
 from telegram.bot import Bot
 from telegram.ext.jobqueue import Job, JobQueue
 
-from config import CHECK_DRIVERS_TASK_INTERVAL
 from log import jobs_logger as logger
 from punishment import Punisher, Punishment
 from taxopark import Taxopark
@@ -68,5 +67,6 @@ def call_dispatcher(bot: Bot, job: Job):
 
 
 def run_jobs(job_queue: JobQueue):
+    pass
     # job_queue.run_once(process_supervision, 0)
-    job_queue.run_repeating(process_supervision, interval=CHECK_DRIVERS_TASK_INTERVAL)
+    # job_queue.run_repeating(process_supervision, interval=CHECK_DRIVERS_TASK_INTERVAL)

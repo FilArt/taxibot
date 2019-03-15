@@ -1,3 +1,5 @@
+import time
+
 HEADLESS = True
 DEBUG = False
 
@@ -40,16 +42,18 @@ CHECK_DRIVERS_TASK_INTERVAL = 5 * 60
 MAX_BUSY_MINUTES = 5  # в минутах - все остальное в секундах
 
 # constants
+VERY_VERY_BEGINING = time.monotonic()
 TIME_FORMAT = '%H:%M:%S'
+DEFAULT_CACHE_EXPIRE = 60 * 60 * 24  # day
+CACHE_DIR = '/tmp'
 DRIVERS_SECRETS_FN = 'local_storage/drivers/{name}{surname}'
 DRIVERS_SYMLINKS = 'local_storage/drivers/{tg_id}'
 ALL_DRIVERS_FN = 'local_storage/all_drivers'
 SECRETS_FN = 'local_storage/secrets'
-OLD_DRIVERS_STATUSES_FN = 'local_storage/old_drivers_statuses'
-NEW_DRIVERS_STATUSES_FN = 'local_storage/new_drivers_statuses'
 TELEGRAM_IDS_PATH = 'local_storage/secrets/telegram_ids/{}'
 PAYLOADS_PATH = 'local_storage/payloads/'
 PAYLOAD_FN = 'local_storage/payloads/{}'
+DRIVERS_INFO_CACHE = 'drivers_info'
 
 try:
     from config_local import *

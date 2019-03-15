@@ -6,20 +6,37 @@ from config import DRIVERS_SECRETS_FN, DRIVERS_SYMLINKS
 from fs_store import Store
 from log import driver_logger as logger
 
-driver_info_factory = namedtuple('driver_info', ('name', 'surname', 'patronymic', 'phone', 'status'))
 driver_status_factory = namedtuple('driver_status', ('value', 'duracity', 'last_updated_at'))
+
+
+class DriverInfo:
+    def __init__(self, name, surname, patronymic, phone, status=None):
+        self.name = name
+        self.surname = surname
+        self.patronymic = patronymic,
+        self.phone = phone
+        self.status = status
+        self.tg_id = None
+        self.tg_name = None
 
 
 class UnregisteredDriver(Exception):
     """Driver unregistered - processing unavailable"""
 
 
-class Driver:
-    def __init__(self, driver_info: driver_info_factory, tg_name: str = '', tg_id: int = None):
-        self.name = driver_info.name
-        self.surname = driver_info.surname
-        self.patronimyc = driver_info.patronymic,
-        self.phone = driver_info.phone
+class Driver(DriverInfo):
+    @classmethod
+    def from_driver_info(cls, driver_info: DriverInfo, tg_name: str = '', tg_id: int = None) -> 'Driver':
+        unfilled = cls(
+            name=driver_info.name,
+            surname=driver_info.surname,
+            patronymic=driver_info.patronymic,
+            phone=driver_info.phone,
+        )
+        unfilled.add_tg_info(tg_name, tg_id)
+        return unfilled
+
+    def add_tg_info(self, tg_name, tg_id):
         self.tg_name = tg_name
         self.tg_id = tg_id
 
@@ -45,7 +62,7 @@ class Driver:
         return {
             'name': self.name,
             'surname': self.surname,
-            'patronimyc': self.patronimyc,
+            'patronymic': self.patronymic,
             'phone': self.phone,
             'tg_name': self.tg_name,
             'tg_id': self.tg_id,
