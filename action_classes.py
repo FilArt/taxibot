@@ -78,22 +78,37 @@ class AdminAction(BaseAction):
         elif choice.startswith(self.REGISTER_DRIVER):
             _, message_id, driver_index, tg_name, tg_id = choice.split('_')
 
+            if Taxopark.is_registered(tg_id=int(tg_id)):
+                self.update.effective_chat.send_message('Водитель уже зарегистрирован.')
+                return
+
             self.update.effective_chat.send_message(
-                'Отправьте команду `/add N @USERNAME ID`, где N - номер водителя из списка, '
+                'Водитель не зарегистрирован. Процесс регистрации: '
+                f'Отправьте команду `/add {driver_index} @USERNAME ID`, \n'
                 'USERNAME - имя водителя в Telegram, ID - id водителя в Telegram.\n'
                 'Чтобы получить telegram id, водитель должен отправить в этот чат команду /id.'
             )
 
+    def add_driver(self):
+        _, driver_index, tg_name, tg_id = self.update.effective_message.text.split()
+        self.update.effective_chat.send_message(f'Регистрируем водителя {tg_name} под номером {driver_index}')
+        try:
+            driver = Taxopark.register_driver(int(driver_index) - 1, tg_name, int(tg_id))
+            self.update.effective_chat.send_message(f'{driver.name} {driver.surname} {driver.tg_name} зарегистрирован.')
+        except Exception as e:
+            logger.exception(e)
+            self.update.effective_chat.send_message('Во время регистрации возникла ошибка.')
+
     def _driver_list(self):
         drivers = Taxopark.get_all_drivers(refresh=False)
         reply_markup = drivers_to_reply_markup(drivers, self.update.effective_message.message_id, self.REGISTER_DRIVER)
-        self.update.effective_message.reply_text('Последний сохраненный список водителей:', reply_markup=reply_markup)
+        self.update.effective_chat.send_message('Последний сохраненный список водителей:', reply_markup=reply_markup)
 
     def _ask_register_driver(self):
-        self.update.effective_chat.send_message("Получаю список водителей, ждите... (примерно 10-30 секунд)")
-        drivers = Taxopark.get_all_drivers(refresh=True)
+        self.update.effective_chat.send_message("Получаю список водителей, ждите...")
+        drivers = Taxopark.get_all_drivers(refresh=False)
         reply_markup = drivers_to_reply_markup(drivers, self.update.effective_message.message_id, self.REGISTER_DRIVER)
-        self.update.effective_message.reply_text('Выберите водителя:', reply_markup=reply_markup)
+        self.update.effective_chat.send_message('Выберите водителя:', reply_markup=reply_markup)
 
 
 class DriverAction(BaseAction):
@@ -113,17 +128,7 @@ class DriverAction(BaseAction):
                      InlineKeyboardButton("Записать новое", callback_data='NOT IMPLEMENTED'),
                      InlineKeyboardButton("Уйти на обед", callback_data='NOT IMPLEMENTED')]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        self.update.message.reply_text('Please choose:', reply_markup=reply_markup)
-
-    def add_driver(self):
-        _, driver_index, tg_name, tg_id = self.update.effective_message.text.split()
-        self.update.effective_chat.send_message(f'Регистрируем водителя {tg_name} под номером {driver_index}')
-        try:
-            driver = Taxopark.register_driver(int(driver_index) - 1, tg_name, int(tg_id))
-            self.update.effective_chat.send_message(f'{driver.name} {driver.surname} {driver.tg_name} зарегистрирован.')
-        except Exception as e:
-            logger.exception(e)
-            self.update.effective_chat.send_message('Во время регистрации возникла ошибка.')
+        self.update.message.reply_text('Выберите команду:', reply_markup=reply_markup)
 
     def process_voice(self, choice: str):
         if choice == self.CANCEL_TESTIFY:
@@ -145,11 +150,17 @@ class DriverAction(BaseAction):
         self.bot.send_message(dispatcher_id, "NOT IMPLEMENTED")
 
 
-def get_action_class(bot: Bot, update: Update) -> Union[BaseAction, DriverAction, AdminAction]:
+class TestAction(AdminAction, DriverAction):
+    pass
+
+
+def get_action_class(bot: Bot, update: Update) -> List[Union[BaseAction, DriverAction, AdminAction]]:
     tg_id = update.effective_user.id
     if tg_id in Taxopark.get_registered_admins():
-        return AdminAction(bot, update, tg_id)
+        if tg_id in Taxopark.get_registered_drivers_tg_ids():
+            return [AdminAction(bot, update, tg_id), DriverAction(bot, update, tg_id)]
+        return [AdminAction(bot, update, tg_id)]
     elif tg_id in Taxopark.get_registered_drivers_tg_ids():
-        return DriverAction(bot, update, tg_id)
+        return [DriverAction(bot, update, tg_id)]
     else:
-        return BaseAction(bot, update, tg_id)
+        return [BaseAction(bot, update, tg_id)]

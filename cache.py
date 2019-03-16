@@ -15,16 +15,16 @@ class Cache:
         """
         A decorator which will use "cachefile" for caching the results of the decorated function "fn".
         """
-        cachefile = cls._get_path(cachefile)
         log = logger.info if logger else print
+        cachefile = cls._get_path(cachefile)
 
         def decorator(fn):  # define a decorator for a function "fn"
             def wrapped(*args, **kwargs):  # define a wrapper that will finally call "fn" with all arguments
                 # if cache exists -> load it and return its content
-                if os.path.getsize(cachefile) == 0:
-                    cls.refresh(cachefile)
                 elapsed_time = time.monotonic() - VERY_VERY_BEGINING
                 if os.path.exists(cachefile) and elapsed_time < expire:
+                    if os.path.getsize(cachefile) == 0:
+                        cls.refresh(cachefile)
                     with open(cachefile, 'rb') as cachehandle:
                         log("using cached result from '%s'" % cachefile)
                         return pickle.load(cachehandle)
@@ -47,7 +47,7 @@ class Cache:
     @classmethod
     def refresh(cls, cachefile: str):
         if os.path.exists(cls._get_path(cachefile)):
-            os.remove(cachefile)
+            os.remove(cls._get_path(cachefile))
 
     @classmethod
     def _get_path(cls, cachefile: str):

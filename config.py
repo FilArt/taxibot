@@ -21,19 +21,22 @@ TESTIFY_TIMEOUT = 10 * 60  # таймаут после того, как сооб
 PENALTIES = {
     1: {
         "type": "warning",
-        "message": "Внимание! Вы не на линии!",
+        "warning": "Внимание! Вы не на линии!",
     },
     2: {
         "type": "warning",
-        "message": "Внимание! Вы не на линии! Отправьте голосовое сообщение с объяснением.",
+        "warning": "Внимание! Вы не на линии! Отправьте голосовое сообщение с объяснением.",
     },
     3: {
         "type": "warning",
-        "message": "Внимание! Вы не на линии! Отправьте голосовое сообщение с объяснением.",
+        "warning": "Внимание! Вы не на линии! Отправьте голосовое сообщение с объяснением.",
     },
     4: {
         "type": "call_dispatcher",
-        "message": "ВНИМАНИЕ! Свяжитесь с водителем. Водитель: {name} {surname}, находился в статусе 'ЗАНЯТ' более 20 минут!!! Объяснительная не получена! Телефон водителя: {telephone} Телеграм: {tg_name}",
+        "message": "ВНИМАНИЕ! Свяжитесь с водителем. "
+                   "Водитель: {name} {surname}, находился в статусе 'ЗАНЯТ' более 20 минут!!! "
+                   "Объяснительная не получена! Телефон водителя: {phone} Телеграм: {tg_name}",
+        "update_timeout": 2 * 60,
     }
 }
 
@@ -47,7 +50,7 @@ TIME_FORMAT = '%H:%M:%S'
 DEFAULT_CACHE_EXPIRE = 60 * 60 * 24  # day
 CACHE_DIR = '/tmp'
 DRIVERS_SECRETS_FN = 'local_storage/drivers/{name}{surname}'
-DRIVERS_SYMLINKS = 'local_storage/drivers/{tg_id}'
+DRIVER_PATH = 'local_storage/drivers/{tg_id}'
 ALL_DRIVERS_FN = 'local_storage/all_drivers'
 SECRETS_FN = 'local_storage/secrets'
 TELEGRAM_IDS_PATH = 'local_storage/secrets/telegram_ids/{}'

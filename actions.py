@@ -14,31 +14,32 @@ def login(bot: Bot, update: Update):
         update.effective_chat.send_message("Уже авторизован.")
         return
 
-    action_class = get_action_class(bot, update)
-    action_class.login()
+    action_classes = get_action_class(bot, update)
+    for ac in action_classes:
+        ac.login()
 
 
 def start(bot: Bot, update: Update):
-    action_class = get_action_class(bot, update)
-    if action_class:
-        action_class.start()
+    action_classes = get_action_class(bot, update)
+    for ac in action_classes:
+        ac.start()
 
 
 def query(bot: Bot, update: Update):
     choice = update.callback_query.data
-    action_class = get_action_class(bot, update)
-    if action_class:
-        action_class.query(choice)
+    action_classes = get_action_class(bot, update)
+    for ac in action_classes:
+        ac.query(choice)
 
 
 def process_voice(bot: Bot, update: Update):
     choice = update.callback_query
-    action_class = get_action_class(bot, update)
-    if action_class:
-        action_class.process_voice(choice)
+    action_classes = get_action_class(bot, update)
+    for ac in action_classes:
+        ac.process_voice(choice)
 
 
 def add_driver(bot: Bot, update: Update):
-    action_class = get_action_class(bot, update)
-    if action_class:
-        action_class.add_driver()
+    action_classes = get_action_class(bot, update)
+    for ac in action_classes:
+        ac.add_driver()

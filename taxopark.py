@@ -1,9 +1,11 @@
+from time import sleep
+
 import os
 from datetime import datetime
 from typing import List
 
 from cache import Cache
-from config import DRIVERS_SECRETS_FN, SECRETS_FN, DRIVERS_SYMLINKS, DRIVERS_INFO_CACHE
+from config import DRIVERS_SECRETS_FN, SECRETS_FN, DRIVER_PATH, DRIVERS_INFO_CACHE
 from driver import Driver, DriverInfo
 from fs_store import Store
 from log import taxopark_logger as logger
@@ -17,14 +19,13 @@ class Taxopark:
     """
     @classmethod
     def register_driver(cls, driver_index: int, tg_name: str, tg_id: int) -> Driver:
-        logger.info(f'registering driver {driver_index}')
-        drivers = cls.get_all_drivers_info()
+        logger.info(f'registering driver {tg_name} with id {tg_id}')
+        drivers = cls._get_all_drivers_info()
         d_info = drivers[driver_index]
         d_info = DriverInfo(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
                             phone=d_info.phone, status=None)
         driver = Driver.from_driver_info(d_info)
-        driver.tg_id = tg_id
-        driver.tg_name = tg_name
+        driver.add_tg_info(tg_name, tg_id)
         driver.save()
         return driver
 
@@ -33,58 +34,25 @@ class Taxopark:
         payload = cls.get_payload(name, surname)
         payload.timeout = timeout
         payload.timeout_set_at = datetime.now()
+        payload.save()
         logger.info('set timeout %i for %s %s', timeout, name, surname)
 
     @classmethod
-    def is_registered(cls, name: str, surname: str, tg_id=None):
-        if tg_id:
-            return os.path.exists(DRIVERS_SYMLINKS.format(tg_id))
-        return os.path.exists(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
+    def is_registered(cls, tg_id: int = None):
+        return os.path.exists(DRIVER_PATH.format(tg_id=tg_id))
 
     @classmethod
     def get_driver(cls, name: str = '', surname: str = '', tg_id: int = None) -> Driver:
-        if not tg_id or (not name and not surname):
+        if not tg_id and (not name and not surname):
             raise Exception("Водитель не зарегистрирован")
         if tg_id:
-            return Store.load(DRIVERS_SYMLINKS.format(tg_id=tg_id))
+            return Store.load(DRIVER_PATH.format(tg_id=tg_id))
         else:
             return Store.load(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
 
     @classmethod
-    def get_all_drivers(cls, refresh=True) -> List[Driver]:
-        drivers = []
-        for driver_info in cls.get_all_drivers_info(refresh=refresh):
-            name, surname = driver_info.name, driver_info.surname
-            if Taxopark.is_registered(name, surname):
-                driver = Taxopark.get_driver(name=driver_info.name, surname=driver_info.surname)
-            else:
-                driver = Driver.from_driver_info(driver_info)
-            drivers.append(driver)
-        return drivers
-
-    @classmethod
-    def get_all_drivers_info(cls, refresh=True) -> List[DriverInfo]:
-        logger.info('fetching drivers list')
-
-        if refresh is True:
-            Cache.refresh(DRIVERS_INFO_CACHE)
-
-        start = datetime.now()
-        drivers_info = SeleniumClient.get_all_drivers_info()
-        end = datetime.now()
-        elapsed = end - start
-        logger.info('drivers list fetched for %i seconds', elapsed.seconds)
-        return drivers_info
-
-    @classmethod
-    def get_drivers_info_from_map(cls) -> List[DriverInfo]:
-        logger.info('fetching drivers from map')
-        drivers_info = SeleniumClient.get_drivers_from_map()
-        return drivers_info
-
-    @classmethod
     def get_payload(cls, name: str, surname: str) -> Payload:
-        return Store.load(Payload.get_path(name, surname))
+        return Payload.load_or_create(name, surname)
 
     @classmethod
     def get_registered_admins(cls) -> List:
@@ -98,6 +66,49 @@ class Taxopark:
     def get_dispatcher_chat_id(cls) -> str:
         # TODO: добавить регистрацию для диспетчеров или захардкодить
         return cls.get_registered_admins()[0]
+
+    @classmethod
+    def get_all_drivers(cls, refresh=True) -> List[Driver]:
+        logger.info('fetching all drivers')
+
+        if refresh:
+            logger.info('cleaning drivers cache')
+            Cache.refresh(DRIVERS_INFO_CACHE)
+
+        drivers_info = SeleniumClient.get_all_drivers_info()
+        logger.info('all drivers fetched')
+        return cls._drivers_info_to_drivers(drivers_info)
+
+    @classmethod
+    def get_all_drivers_from_map(cls) -> List[Driver]:
+        logger.info('fetching drivers list from map')
+        drivers_info = SeleniumClient.get_drivers_info_from_map()
+        logger.info('drivers from map fetched')
+        return cls._drivers_info_to_drivers(drivers_info)
+
+    @classmethod
+    def _drivers_info_to_drivers(cls, drivers_info: List[DriverInfo]) -> List[Driver]:
+        drivers = []
+        for driver_info in drivers_info:
+            if Taxopark.is_registered(driver_info.tg_id):
+                driver = Taxopark.get_driver(name=driver_info.name, surname=driver_info.surname)
+            else:
+                driver = Driver.from_driver_info(driver_info)
+            drivers.append(driver)
+        return drivers
+
+    @classmethod
+    @Cache.cached(DRIVERS_INFO_CACHE, logger=logger)
+    def _get_all_drivers_info(cls) -> List[DriverInfo]:
+        logger.info('fetching drivers list')
+        drivers_info = SeleniumClient.get_all_drivers_info()
+        logger.info('fetched all drivers')
+        return drivers_info
+
+    @classmethod
+    def _get_drivers_info_from_map(cls) -> List[DriverInfo]:
+        drivers_info = SeleniumClient.get_drivers_info_from_map()
+        return drivers_info
 
     @staticmethod
     def _get_secret_file():

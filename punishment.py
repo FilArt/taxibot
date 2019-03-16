@@ -1,35 +1,10 @@
-from typing import List
+from telegram import Bot
 
 from config import PENALTIES
-from payload import Payload
+from driver import Driver
+from log import punish_logger as logger
 from taxopark import Taxopark
-from log import punishment_logger as logger
-
-
-class Punisher:
-    """
-    Класс для раздачи пиздюлей
-    """
-    @classmethod
-    def fetch_and_update_busy_drivers_payloads(cls) -> List[Payload]:
-        drivers_info = Taxopark.get_drivers_info_from_map()
-
-        payloads = []
-        for driver_info in drivers_info:
-            name, surname = driver_info.name, driver_info.surname
-            if not Taxopark.is_registered(name, surname):
-                logger.info('skip unregistered driver %s %s', name, surname)
-                continue
-
-            if Payload.exists(name, surname):
-                payload = Taxopark.get_payload(name, surname)
-                payload.increment_penalties()
-            else:
-                payload = Payload(name, surname, penalties=1)
-                payload.save()
-
-            payloads.append(payload)
-        return payloads
+from utils import merge_with_pattern
 
 
 class Punishment:
@@ -38,6 +13,9 @@ class Punishment:
     """
     def __init__(self, penalty: int):
         self.penalty = PENALTIES[penalty]
+        self.warning = self.penalty['warning']
+        self.message = self.penalty['message']
+        self.update_timeout = self.penalty['update_timeout']
 
     def __str__(self):
         return str(self.penalty)
@@ -52,3 +30,36 @@ class Punishment:
     @property
     def is_call_dispatcher(self):
         return self.penalty['type'] == 'call_dispatcher'
+
+
+class Punisher:
+    def __init__(self, bot: Bot):
+        self._bot = bot
+
+    def punish_driver(self, driver: Driver):
+        name, surname = driver.name, driver.surname
+        if not Taxopark.is_registered(tg_id=driver.tg_id):
+            logger.info('skip unregistered driver %s %s', name, surname)
+            return
+
+        payload = Taxopark.get_payload(driver.name, driver.surname)
+        payload.update_timeout()
+        if payload.timeout is not None:
+            logger.info('skip driver %s %s which has timeout', name, surname)
+            return
+
+        punishment = Punishment(payload.penalty)
+        if punishment.is_warning:
+            self._send_warning(punishment.warning, driver)
+        elif punishment.is_call_dispatcher:
+            self._call_dispatcher(punishment.message, driver)
+            Taxopark.set_timeout(driver.name, driver.surname, punishment.update_timeout)
+
+    def _send_warning(self, warning, driver: Driver):
+        self._bot.send_message(driver.tg_id, warning)
+        logger.info('warning for %s %s sent', driver.name, driver.surname)
+
+    def _call_dispatcher(self, message, driver: Driver):
+        message = merge_with_pattern(message, driver.to_dict())
+        self._bot.send_message(Taxopark.get_dispatcher_chat_id(), message)
+        logger.info("dispatcher informed about %s %s", driver.name, driver.surname)
