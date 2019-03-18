@@ -74,3 +74,7 @@ class Payload(me.Document):
 
 class Admin(me.Document):
     tg_id = me.IntField(required=True)
+
+
+class Dispatcher(me.Document):
+    chat_id = me.IntField(required=True)

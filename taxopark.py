@@ -77,8 +77,8 @@ class Taxopark:
         pass
 
     @classmethod
-    def get_registered_admins(cls) -> List:
-        pass
+    def get_admin(cls) -> Admin:
+        return Admin.objects[0]
 
     @classmethod
     def get_registered_drivers_tg_ids(cls) -> List:

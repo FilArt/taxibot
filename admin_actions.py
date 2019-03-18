@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Bot, Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ConversationHandler, CommandHandler, CallbackQueryHandler, RegexHandler
+from telegram.ext import ConversationHandler, CommandHandler, CallbackQueryHandler, RegexHandler, InlineQueryHandler
 
 from taxopark import Taxopark
 
@@ -10,6 +10,15 @@ STATE_ASK_FOR_TG_CREDS, STATE_REGISTER_DRIVER = range(2)
 
 CD_MODIFY_DRIVER = '/modifyDriver'
 STATE_SHOW_DRIVER, STATE_ASK_MODIFY, STATE_COMPLETE_MODIFY = range(3)
+
+
+def add_dispatcher(bot: Bot, update: Update):
+    chat_id = update.effective_chat.id
+    admin = Taxopark.get_admin()
+    bot.send_message(admin.tg_id, 'Меня добавили в диспетчерскую {} - это корректно?')
+
+
+add_dispatcher_handler = InlineQueryHandler(add_dispatcher)
 
 
 def cancel(bot: Bot, update: Update):
@@ -86,7 +95,7 @@ def registered_drivers_list(bot: Bot, update: Update):
 def show_driver(bot: Bot, update: Update):
     driver_id = update.callback_query.data
     driver = Taxopark.get_driver(driver_id)
-    attributes = ('tg_name', 'tg_id')
+    attributes = ('tg.name', 'tg.id')
     reply_markup = InlineKeyboardMarkup(
         [
             [
@@ -149,4 +158,5 @@ modify_driver_handler = ConversationHandler(
 admin_handlers = (
     add_driver_handler,
     modify_driver_handler,
+    add_dispatcher_handler,
 )
