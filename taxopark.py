@@ -1,15 +1,11 @@
-from time import sleep
-
-import os
 from datetime import datetime
-from typing import List
+from mongoengine import DoesNotExist, MultipleObjectsReturned
 
-from cache import Cache
-from config import DRIVERS_SECRETS_FN, SECRETS_FN, DRIVER_PATH, DRIVERS_INFO_CACHE
-from driver import Driver, DriverInfo
-from fs_store import Store
+from typing import List, Dict
+
+from config import DEBUG
+from db import Driver, Payload, Admin
 from log import taxopark_logger as logger
-from payload import Payload
 from selenium_client import SeleniumClient
 
 
@@ -17,14 +13,35 @@ class Taxopark:
     """
     Локальное хранилище данных водителей (а также их статусов) и админов бота.
     """
+
     @classmethod
-    def register_driver(cls, driver_index: int, tg_name: str, tg_id: int) -> Driver:
+    def is_admin(cls, tg_id: int):
+        try:
+            Admin.objects.get(tg_id=tg_id)
+            return True
+        except DoesNotExist:
+            return False
+
+    @classmethod
+    def is_driver(cls, tg_id: int):
+        try:
+            Driver.objects.get(tg__id=tg_id)
+            return True
+        except DoesNotExist:
+            return False
+        except MultipleObjectsReturned:
+            if DEBUG:
+                return True
+            return True
+
+    @classmethod
+    def register_admin(cls, tg_id):
+        new_admin = Admin(tg_id=tg_id)
+        new_admin.save()
+
+    @classmethod
+    def register_driver(cls, driver: Driver, tg_name: str, tg_id: int) -> Driver:
         logger.info(f'registering driver {tg_name} with id {tg_id}')
-        drivers = cls._get_all_drivers_info()
-        d_info = drivers[driver_index]
-        d_info = DriverInfo(name=d_info.name, surname=d_info.surname, patronymic=d_info.patronymic,
-                            phone=d_info.phone, status=None)
-        driver = Driver.from_driver_info(d_info)
         driver.add_tg_info(tg_name, tg_id)
         driver.save()
         return driver
@@ -38,29 +55,47 @@ class Taxopark:
         logger.info('set timeout %i for %s %s', timeout, name, surname)
 
     @classmethod
-    def is_registered(cls, tg_id: int = None):
-        return os.path.exists(DRIVER_PATH.format(tg_id=tg_id))
+    def update_tg_name(cls, driver: Driver, tg_name: str):
+        driver.tg.name = tg_name
+        driver.save()
 
     @classmethod
-    def get_driver(cls, name: str = '', surname: str = '', tg_id: int = None) -> Driver:
-        if not tg_id and (not name and not surname):
-            raise Exception("Водитель не зарегистрирован")
-        if tg_id:
-            return Store.load(DRIVER_PATH.format(tg_id=tg_id))
-        else:
-            return Store.load(DRIVERS_SECRETS_FN.format(name=name, surname=surname))
+    def update_tg_id(cls, driver: Driver, tg_id: int):
+        driver.tg.id = tg_id
+        driver.save()
+
+    @classmethod
+    def is_registered(cls, driver: Driver = None, tg_id: int = None):
+        pass
+
+    @classmethod
+    def get_driver(cls, driver_id: str) -> Driver:
+        return Driver.objects.get(id=driver_id)
 
     @classmethod
     def get_payload(cls, name: str, surname: str) -> Payload:
-        return Payload.load_or_create(name, surname)
+        pass
 
     @classmethod
     def get_registered_admins(cls) -> List:
-        return cls._get_secret_file().get('admins', [])
+        pass
 
     @classmethod
     def get_registered_drivers_tg_ids(cls) -> List:
-        return cls._get_secret_file().get('drivers', [])
+        pass
+
+    @classmethod
+    def get_registered_drivers(cls) -> List[Driver]:
+        return [d for d in Driver.objects if d.tg is not None]
+
+    @classmethod
+    def get_unregistered_drivers(cls) -> List[Driver]:
+        all_drivers = cls._drivers_info_to_drivers(SeleniumClient.get_all_drivers_info())
+        result = []
+        for driver in all_drivers:
+            if driver.tg is None:
+                result.append(driver)
+        return result
 
     @classmethod
     def get_dispatcher_chat_id(cls) -> str:
@@ -68,13 +103,8 @@ class Taxopark:
         return cls.get_registered_admins()[0]
 
     @classmethod
-    def get_all_drivers(cls, refresh=True) -> List[Driver]:
+    def get_all_drivers(cls) -> List[Driver]:
         logger.info('fetching all drivers')
-
-        if refresh:
-            logger.info('cleaning drivers cache')
-            Cache.refresh(DRIVERS_INFO_CACHE)
-
         drivers_info = SeleniumClient.get_all_drivers_info()
         logger.info('all drivers fetched')
         return cls._drivers_info_to_drivers(drivers_info)
@@ -87,34 +117,21 @@ class Taxopark:
         return cls._drivers_info_to_drivers(drivers_info)
 
     @classmethod
-    def _drivers_info_to_drivers(cls, drivers_info: List[DriverInfo]) -> List[Driver]:
-        drivers = []
-        for driver_info in drivers_info:
-            if Taxopark.is_registered(driver_info.tg_id):
-                driver = Taxopark.get_driver(name=driver_info.name, surname=driver_info.surname)
-            else:
-                driver = Driver.from_driver_info(driver_info)
-            drivers.append(driver)
-        return drivers
-
-    @classmethod
-    @Cache.cached(DRIVERS_INFO_CACHE, logger=logger)
-    def _get_all_drivers_info(cls) -> List[DriverInfo]:
+    def _get_all_drivers_info(cls) -> List[Dict]:
         logger.info('fetching drivers list')
         drivers_info = SeleniumClient.get_all_drivers_info()
         logger.info('fetched all drivers')
         return drivers_info
 
     @classmethod
-    def _get_drivers_info_from_map(cls) -> List[DriverInfo]:
+    def _get_drivers_info_from_map(cls) -> List[Dict]:
         drivers_info = SeleniumClient.get_drivers_info_from_map()
         return drivers_info
 
-    @staticmethod
-    def _get_secret_file():
-        try:
-            return Store.load(SECRETS_FN)
-        except FileNotFoundError:
-            logger.info('creating secrets file')
-            Store.store_failsafe(SECRETS_FN, {})
-            return Store.load(SECRETS_FN)
+    @classmethod
+    def _drivers_info_to_drivers(cls, drivers_info: List[Dict]) -> List[Driver]:
+        drivers = []
+        for driver_info in drivers_info:
+            driver = Driver.from_driver_info(driver_info)
+            drivers.append(driver)
+        return drivers

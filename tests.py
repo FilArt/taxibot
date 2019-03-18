@@ -38,7 +38,7 @@ class TestFSStore(TestCase):
 #
 #     def test_is_registered(self):
 #         self.assertTrue(Taxopark.is_registered(name=self.driver.name, surname=self.driver.surname))
-#         self.assertTrue(Taxopark.is_registered(tg_id=self.driver.tg_id))
+#         self.assertTrue(Taxopark.is_registered(tg_id=self.driver.tg.id))
 #
 #
 # class TestPunish(TestCase):

@@ -1,7 +1,7 @@
 from telegram import Bot
 
 from config import PENALTIES
-from driver import Driver
+from db import Driver
 from log import punish_logger as logger
 from taxopark import Taxopark
 from utils import merge_with_pattern
@@ -13,9 +13,9 @@ class Punishment:
     """
     def __init__(self, penalty: int):
         self.penalty = PENALTIES[penalty]
-        self.warning = self.penalty['warning']
-        self.message = self.penalty['message']
-        self.update_timeout = self.penalty['update_timeout']
+        self.type = self.penalty['type']
+        self.message = self.penalty.get('message')
+        self.update_timeout = self.penalty.get('update_timeout')
 
     def __str__(self):
         return str(self.penalty)
@@ -25,11 +25,11 @@ class Punishment:
 
     @property
     def is_warning(self):
-        return self.penalty['type'] == 'warning'
+        return self.type == 'warning'
 
     @property
     def is_call_dispatcher(self):
-        return self.penalty['type'] == 'call_dispatcher'
+        return self.type == 'call_dispatcher'
 
 
 class Punisher:
@@ -38,7 +38,7 @@ class Punisher:
 
     def punish_driver(self, driver: Driver):
         name, surname = driver.name, driver.surname
-        if not Taxopark.is_registered(tg_id=driver.tg_id):
+        if not Taxopark.is_registered(driver):
             logger.info('skip unregistered driver %s %s', name, surname)
             return
 
@@ -50,13 +50,13 @@ class Punisher:
 
         punishment = Punishment(payload.penalty)
         if punishment.is_warning:
-            self._send_warning(punishment.warning, driver)
+            self._send_warning(punishment.message, driver)
         elif punishment.is_call_dispatcher:
             self._call_dispatcher(punishment.message, driver)
             Taxopark.set_timeout(driver.name, driver.surname, punishment.update_timeout)
 
     def _send_warning(self, warning, driver: Driver):
-        self._bot.send_message(driver.tg_id, warning)
+        self._bot.send_message(driver.tg.id, warning)
         logger.info('warning for %s %s sent', driver.name, driver.surname)
 
     def _call_dispatcher(self, message, driver: Driver):

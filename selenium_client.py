@@ -1,6 +1,5 @@
 from time import sleep
 
-from datetime import datetime
 from retry import retry
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
@@ -8,12 +7,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
-from typing import List
+from typing import List, Dict
 from urllib.parse import urlparse
 
-from cache import Cache
-from config import HEADLESS, YANDEX_PASSWORD, YANDEX_LOGIN, DRIVERS_INFO_CACHE
-from driver import DriverInfo, DriverStatus
+from config import HEADLESS, YANDEX_PASSWORD, YANDEX_LOGIN
 from log import selenium_logger as logger
 
 AUTH_URL = 'https://passport.yandex.ru/auth'
@@ -59,8 +56,7 @@ class SeleniumClient:
         self.BROWSER.quit()
 
     @classmethod
-    @Cache.cached(DRIVERS_INFO_CACHE, logger=logger)
-    def get_all_drivers_info(cls) -> List[DriverInfo]:
+    def get_all_drivers_info(cls) -> List[Dict]:
         while cls.BUSY:
             sleep(1)
         cls.BUSY = True
@@ -76,14 +72,14 @@ class SeleniumClient:
         result = []
         for name_info, phone in zip(names, phones):
             surname, name, patronymic = name_info.text.split()
-            result.append(DriverInfo(name=name, surname=surname, patronymic=patronymic, phone=phone.text, status=None))
+            result.append({'name': name, 'surname': surname, 'patronymic': patronymic, 'phone': phone.text})
 
         # TODO: доделать переход по пагинации
         cls.BUSY = False
         return result
 
     @classmethod
-    def get_drivers_info_from_map(cls) -> List[DriverInfo]:
+    def get_drivers_info_from_map(cls) -> List[Dict]:
         """
         Возвращает дикты с водителями, которые доступны во вьюхе /maps
         Этот метод удобен для сбора занятых водителей
@@ -102,20 +98,21 @@ class SeleniumClient:
             logger.info('no one user found')
 
         logger.info('fetching drivers info from map')
-        now = datetime.now()
         drivers_info_dicts = []
         for i in range(0, len(user_list), 4):
             chunk = tuple(user_list[i:i+4][1:])
             fullname, status, minutes = chunk
             minutes = int(minutes.split()[0])
-            name, surname, patronymic = fullname.split()
-            driver_status = DriverStatus(status, minutes, now)
-            drivers_info_dicts.append(dict(
-                name=name,
-                surname=surname,
-                patronymic=patronymic,
-                status=driver_status,
-            ))
+            surname, name, patronymic = fullname.split()
+            drivers_info_dicts.append({
+                'name': name,
+                'surname': surname,
+                'patronymic': patronymic,
+                'status': {
+                    'value': status,
+                    'duracity': minutes,
+                }
+            })
 
         for i in range(1, len(drivers_info_dicts) + 1):
             selector = cls.PHONE_TAGS_XPATH.format(i)
@@ -125,11 +122,7 @@ class SeleniumClient:
             drivers_info_dicts[i - 1]['phone'] = phone
 
         cls.BUSY = False
-        return [
-            DriverInfo(name=d['name'], surname=d['surname'], patronymic=d['patronymic'],
-                       phone=d['phone'], status=d['status'])
-            for d in drivers_info_dicts
-        ]
+        return drivers_info_dicts
 
     @classmethod
     @retry(tries=3)

@@ -1,7 +1,11 @@
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.bot import Bot
+from telegram.ext import ConversationHandler
 from telegram.update import Update
 
-from action_classes import get_action_class
+import admin_actions
+import driver_actions
+from config import ADMIN_KEY
 from taxopark import Taxopark
 
 
@@ -9,37 +13,29 @@ def login(bot: Bot, update: Update):
     """
     Добавить новую учетную запись администратора
     """
-    tg_id = update.effective_user.id
-    if tg_id in Taxopark.get_registered_drivers_tg_ids():
-        update.effective_chat.send_message("Уже авторизован.")
-        return
+    words = update.effective_message.text.split()
+    if len(words) == 2 and words[1] == ADMIN_KEY:
+        tg_id = update.effective_user.id
+        if Taxopark.is_admin(tg_id):
+            update.effective_chat.send_message('Вы уже зарегистрированы.')
+        else:
+            Taxopark.register_admin(tg_id)
+            update.effective_chat.send_message('Успешно зарегистрирован.')
 
-    action_classes = get_action_class(bot, update)
-    for ac in action_classes:
-        ac.login()
+
+def get_id(bot: Bot, update: Update):
+    update.effective_chat.send_message(update.effective_user.id)
 
 
 def start(bot: Bot, update: Update):
-    action_classes = get_action_class(bot, update)
-    for ac in action_classes:
-        ac.start()
+    tg_id = update.effective_user.id
+    if Taxopark.is_driver(tg_id):
+        driver_actions.start(bot, update)
+    elif Taxopark.is_admin(tg_id):
+        admin_actions.start(bot, update)
+    else:
+        reply_keyboard = [['/id']]
 
-
-def query(bot: Bot, update: Update):
-    choice = update.callback_query.data
-    action_classes = get_action_class(bot, update)
-    for ac in action_classes:
-        ac.query(choice)
-
-
-def process_voice(bot: Bot, update: Update):
-    choice = update.callback_query
-    action_classes = get_action_class(bot, update)
-    for ac in action_classes:
-        ac.process_voice(choice)
-
-
-def add_driver(bot: Bot, update: Update):
-    action_classes = get_action_class(bot, update)
-    for ac in action_classes:
-        ac.add_driver()
+        update.message.reply_text(
+            'Выберите команду:',
+            reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
