@@ -1,27 +1,19 @@
-from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler
-from telegram.ext.filters import Filters
+from telegram.ext import CommandHandler
 
-from actions import login, start, query, process_voice, add_driver
-from config import DEBUG
+from actions import login, start, get_id
+from admin_actions import admin_handlers
+from driver_actions import driver_handlers
 
 login_handler = CommandHandler('login', login)
-voice_msg_handler = MessageHandler(Filters.voice, process_voice)
 start_handler = CommandHandler('start', start)
-query_handler = CallbackQueryHandler(query)
-driver_secrets_handler = CommandHandler('add', add_driver)
+id_handler = CommandHandler('id', get_id)
 
 handlers = (
     login_handler,
-    voice_msg_handler,
     start_handler,
-    query_handler,
-    driver_secrets_handler,
+    *admin_handlers,
+    *driver_handlers,
 )
-
-if DEBUG:
-    handlers = (
-        *handlers,
-    )
 
 
 def handling_handlers(dispatcher):

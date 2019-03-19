@@ -1,5 +1,6 @@
-import os
 from unittest import TestCase
+
+import os
 
 from fs_store import Store
 
@@ -28,3 +29,22 @@ class TestFSStore(TestCase):
         second_file = '/'.join(self.filename2.split('/'))
         if os.path.exists(second_file):
             os.removedirs('/'.join(self.filename2.split('/')[:-1]))
+
+
+# class TestTaxopark(TestCase):
+#     def setUp(self):
+#         self.driver = Driver('testName', 'testSurname', '', '+7911123123')
+#         Taxopark.register_driver(driver_index=0, tg_name='@filart', tg_id=339020478)
+#
+#     def test_is_registered(self):
+#         self.assertTrue(Taxopark.is_registered(name=self.driver.name, surname=self.driver.surname))
+#         self.assertTrue(Taxopark.is_registered(tg_id=self.driver.tg.id))
+#
+#
+# class TestPunish(TestCase):
+#     def setUp(self):
+#         self.driver = Driver('testName', 'testSurname', '', '+7911123123')
+#         Taxopark.register_driver(driver_index=0, tg_name='@filart', tg_id=339020478)
+#
+#     def test_punishment(self):
+#         punisher = Punisher(bot)

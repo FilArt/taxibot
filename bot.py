@@ -4,7 +4,7 @@ from config import TOKEN, REQUEST_KWARGS
 from handlers import handling_handlers
 from jobs import run_jobs
 
-updater = Updater(token=TOKEN, request_kwargs=REQUEST_KWARGS)
+updater = Updater(token=TOKEN, request_kwargs=REQUEST_KWARGS, workers=10)
 job_queue = updater.job_queue
 
 
