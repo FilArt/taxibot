@@ -109,7 +109,7 @@ class SeleniumClient:
         logger.debug("fetching drivers info from map")
         drivers_info_dicts = []
         for i in range(0, len(user_list), 4):
-            chunk = tuple(user_list[i : i + 4][1:])
+            chunk = tuple(user_list[i:i + 4][1:])
             fullname, status, minutes = chunk
             minutes = int(minutes.split()[0])
             surname, name, patronymic = fullname.split()
