@@ -4,16 +4,11 @@ from actions import login, start, get_id
 from admin_actions import admin_handlers
 from driver_actions import driver_handlers
 
-login_handler = CommandHandler('login', login)
-start_handler = CommandHandler('start', start)
-id_handler = CommandHandler('id', get_id)
+login_handler = CommandHandler("login", login)
+start_handler = CommandHandler("start", start)
+id_handler = CommandHandler("id", get_id)
 
-handlers = (
-    login_handler,
-    start_handler,
-    *admin_handlers,
-    *driver_handlers,
-)
+handlers = (id_handler, login_handler, start_handler, *admin_handlers, *driver_handlers)
 
 
 def handling_handlers(dispatcher):

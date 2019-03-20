@@ -1,10 +1,10 @@
 from datetime import datetime
+from typing import List, Dict, Optional
+
 from mongoengine import DoesNotExist, MultipleObjectsReturned
 
-from typing import List, Dict
-
 from config import DEBUG
-from db import Driver, Payload, Admin
+from db import Driver, Payload, Admin, Config
 from log import taxopark_logger as logger
 from selenium_client import SeleniumClient
 
@@ -23,7 +23,7 @@ class Taxopark:
             return False
 
     @classmethod
-    def is_driver(cls, tg_id: int):
+    def is_registered_by_tg_id(cls, tg_id: int):
         try:
             Driver.objects.get(tg__id=tg_id)
             return True
@@ -32,7 +32,7 @@ class Taxopark:
         except MultipleObjectsReturned:
             if DEBUG:
                 return True
-            return True
+            raise
 
     @classmethod
     def register_admin(cls, tg_id):
@@ -41,18 +41,18 @@ class Taxopark:
 
     @classmethod
     def register_driver(cls, driver: Driver, tg_name: str, tg_id: int) -> Driver:
-        logger.info(f'registering driver {tg_name} with id {tg_id}')
+        logger.info(f"registering driver {tg_name} with id {tg_id}")
         driver.add_tg_info(tg_name, tg_id)
         driver.save()
         return driver
 
     @classmethod
-    def set_timeout(cls, name: str, surname: str, timeout: int):
-        payload = cls.get_payload(name, surname)
+    def set_timeout(cls, driver: Driver, timeout: int):
+        payload = cls.get_payload(driver)
         payload.timeout = timeout
         payload.timeout_set_at = datetime.now()
         payload.save()
-        logger.info('set timeout %i for %s %s', timeout, name, surname)
+        logger.info("set timeout %i for %s %s", timeout, driver.name, driver.surname)
 
     @classmethod
     def update_tg_name(cls, driver: Driver, tg_name: str):
@@ -65,24 +65,27 @@ class Taxopark:
         driver.save()
 
     @classmethod
-    def is_registered(cls, driver: Driver = None, tg_id: int = None):
-        pass
+    def is_registered(cls, driver: Driver = None):
+        return driver.tg is not None
 
     @classmethod
-    def get_driver(cls, driver_id: str) -> Driver:
-        return Driver.objects.get(id=driver_id)
+    def get_driver(cls, driver_id: str = None, tg_id: int = None) -> Driver:
+        return (
+            Driver.objects.get(id=driver_id)
+            if driver_id
+            else Driver.objects.get(tg__id=tg_id)
+        )
 
     @classmethod
-    def get_payload(cls, name: str, surname: str) -> Payload:
-        pass
+    def get_payload(cls, driver: Driver) -> Optional[Payload]:
+        try:
+            return Payload.objects.get(driver=driver)
+        except DoesNotExist:
+            return Payload(driver=driver, penalty=1)
 
     @classmethod
     def get_admin(cls) -> Admin:
         return Admin.objects[0]
-
-    @classmethod
-    def get_registered_drivers_tg_ids(cls) -> List:
-        pass
 
     @classmethod
     def get_registered_drivers(cls) -> List[Driver]:
@@ -90,37 +93,40 @@ class Taxopark:
 
     @classmethod
     def get_unregistered_drivers(cls) -> List[Driver]:
-        all_drivers = cls._drivers_info_to_drivers(SeleniumClient.get_all_drivers_info())
+        all_drivers = SeleniumClient.get_all_drivers_info()
         result = []
         for driver in all_drivers:
-            if driver.tg is None:
-                result.append(driver)
+            if Driver.objects.filter(**driver):
+                continue
+
+            driver = Driver.from_driver_info(driver)
+            result.append(driver)
         return result
 
     @classmethod
-    def get_dispatcher_chat_id(cls) -> str:
-        # TODO: добавить регистрацию для диспетчеров или захардкодить
-        return cls.get_registered_admins()[0]
+    def get_dispatcher_chat_id(cls) -> int:
+        conf = Config.get()
+        return conf.dispatcher_chat_id
 
     @classmethod
     def get_all_drivers(cls) -> List[Driver]:
-        logger.info('fetching all drivers')
+        logger.info("fetching all drivers")
         drivers_info = SeleniumClient.get_all_drivers_info()
-        logger.info('all drivers fetched')
+        logger.info("all drivers fetched")
         return cls._drivers_info_to_drivers(drivers_info)
 
     @classmethod
     def get_all_drivers_from_map(cls) -> List[Driver]:
-        logger.info('fetching drivers list from map')
+        logger.info("fetching drivers list from map")
         drivers_info = SeleniumClient.get_drivers_info_from_map()
-        logger.info('drivers from map fetched')
+        logger.info(f"{len(drivers_info)} drivers fetched from map")
         return cls._drivers_info_to_drivers(drivers_info)
 
     @classmethod
     def _get_all_drivers_info(cls) -> List[Dict]:
-        logger.info('fetching drivers list')
+        logger.info("fetching drivers list")
         drivers_info = SeleniumClient.get_all_drivers_info()
-        logger.info('fetched all drivers')
+        logger.info("fetched all drivers")
         return drivers_info
 
     @classmethod

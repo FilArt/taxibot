@@ -1,12 +1,16 @@
-import mongoengine as me
 from datetime import datetime
 
+import mongoengine as me
+
+from config import MONGO_SETTINGS, PENALTIES
+from log import db_logger as logger
+
 me.connect(
-    'taxi',
-    host='localhost',
-    port=27017,
-    username='taxi',
-    password='taxi',
+    MONGO_SETTINGS["DB_NAME"],
+    host=MONGO_SETTINGS["HOST"],
+    port=MONGO_SETTINGS["PORT"],
+    username=MONGO_SETTINGS["USERNAME"],
+    password=MONGO_SETTINGS["PASSWORD"],
 )
 
 
@@ -35,19 +39,29 @@ class Driver(me.Document):
 
     @property
     def busy(self):
-        return self.status.value == 'Busy'
+        return self.status.value == "Busy"
 
     @classmethod
-    def from_driver_info(cls, driver_info: dict) -> 'Driver':
-        result = cls.objects.filter(**driver_info)
+    def from_driver_info(cls, driver_info: dict) -> "Driver":
+        result = cls.objects.filter(
+            **{k: v for k, v in driver_info.items() if k != "status"}
+        )
         if result:
-            return result[0]
+            result = result[0]
+            result.status = DriverStatus(**driver_info["status"])
+            return result
         result = cls(**driver_info)
-        result.save()
         return result
 
-    def __str__(self):
-        return f'{self.name} {self.surname}'
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "surname": self.surname,
+            "phone": self.phone,
+            "patronymic": self.patronymic,
+            "tg_id": self.tg.id if self.tg else None,
+            "tg_name": self.tg.name if self.tg else None,
+        }
 
 
 class Payload(me.Document):
@@ -55,6 +69,7 @@ class Payload(me.Document):
     penalty = me.IntField(min_value=0, required=True)
     timeout = me.IntField(min_value=0)
     timeout_set_at = me.DateTimeField()
+    exclude = me.BooleanField(default=False)
 
     def update_timeout(self):
         timeout = self.timeout
@@ -69,12 +84,66 @@ class Payload(me.Document):
         self.save()
 
     def increment_penalties(self):
-        self.penalty += 1
+        max_penalty = max(PENALTIES.keys())
+        if self.penalty == max_penalty:
+            self.penalty = 0
+            logger.info(
+                "Penalty reset for %s %s", self.driver.name, self.driver.surname
+            )
+        else:
+            self.penalty += 1
+        self.save()
 
 
 class Admin(me.Document):
     tg_id = me.IntField(required=True)
 
 
-class Dispatcher(me.Document):
-    chat_id = me.IntField(required=True)
+class Config(me.Document):
+    dispatcher_chat_id = me.IntField()
+
+    check_drivers_interval = me.IntField(min_value=1, max_value=60)
+    max_busy_time = me.IntField(min_value=1, max_value=60)
+
+    translation_map = {
+        "check_drivers_interval": "Периодичность проверки водителей (в минутах)",
+        "dispatcher_chat_id": "ID чата диспетчерской",
+        "max_busy_time": "Максимальное время простоя водителя (в минутах)",
+    }
+
+    def set_check_drivers_interval(self, new_value: int):
+        config = self.get()
+        old_value = config.check_drivers_interval
+        config.check_drivers_interval = new_value
+        config.save()
+        logger.info(
+            'config modified. value "max_busy_time"' "chaged from {} to {}",
+            old_value,
+            new_value,
+        )
+
+    def set_dispatcher_chat_id(self, new_value: int):
+        config = self.get()
+        old_value = config.dispatcher_chat_id
+        config.dispatcher_chat_id = new_value
+        config.save()
+        logger.info(
+            'config modified. value "max_busy_time"' "chaged from {} to {}",
+            old_value,
+            new_value,
+        )
+
+    def set_max_busy_time(self, new_value: int):
+        config = self.get()
+        old_value = config.max_busy_time
+        config.max_busy_time = new_value
+        config.save()
+        logger.info(
+            'config modified. value "max_busy_time"' "chaged from {} to {}",
+            old_value,
+            new_value,
+        )
+
+    @classmethod
+    def get(cls):
+        return cls.objects[0]
