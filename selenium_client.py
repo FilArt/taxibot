@@ -35,6 +35,8 @@ class SeleniumClient:
     def init(cls):
         logger.info("launching")
         options = Options()
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         options.headless = True if HEADLESS else False
         browser = webdriver.Chrome(options=options)
 
