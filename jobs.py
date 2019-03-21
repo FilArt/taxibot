@@ -32,3 +32,4 @@ def process_supervision(bot: Bot, job: Job):
 
 def run_jobs(job_queue: JobQueue):
     job_queue.run_repeating(process_supervision, interval=0)
+

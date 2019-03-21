@@ -33,9 +33,20 @@ class Driver(me.Document):
     status = me.EmbeddedDocumentField(DriverStatus)
     tg = me.EmbeddedDocumentField(DriverTG)
 
+    def __str__(self):
+        return f'{self.name} {self.surname}'
+
     def add_tg_info(self, tg_name: str, tg_id: int):
         self.tg = DriverTG(name=tg_name, id=tg_id)
         self.save()
+
+    @property
+    def tg_id(self):
+        return self.tg.id if self.tg else None
+
+    @property
+    def tg_name(self):
+        return self.tg.name if self.tg else None
 
     @property
     def busy(self):
@@ -101,15 +112,28 @@ class Admin(me.Document):
 
 class Config(me.Document):
     dispatcher_chat_id = me.IntField()
+    lunch_timeout = me.IntField()
 
     check_drivers_interval = me.IntField(min_value=1, max_value=60)
     max_busy_time = me.IntField(min_value=1, max_value=60)
 
     translation_map = {
         "check_drivers_interval": "Периодичность проверки водителей (в минутах)",
-        "dispatcher_chat_id": "ID чата диспетчерской",
+        "dispatcher_chat_id": "ID диспетчера",
         "max_busy_time": "Максимальное время простоя водителя (в минутах)",
+        "lunch_timeout": "Время обеда водителя (отключает уведомления о простое)",
     }
+
+    def set_lunch_timeout(self, new_value: int):
+        config = self.get()
+        old_value = config.lunch_timeout
+        config.lunch_timeout = new_value
+        config.save()
+        logger.info(
+            'config modified. value "lunch_timeout"' "chaged from %i to %i",
+            old_value,
+            new_value,
+        )
 
     def set_check_drivers_interval(self, new_value: int):
         config = self.get()

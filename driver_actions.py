@@ -1,5 +1,7 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Voice, Update, Bot
-from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Voice, Update, Bot, \
+    KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters, \
+    CallbackQueryHandler
 
 from admin_actions import cancel
 from constants import LUNCH_TIMEOUT
@@ -13,9 +15,9 @@ LUNCH = "/lunch"
 
 # noinspection PyUnusedLocal
 def start(bot: Bot, update: Update):
-    keyboard = [[InlineKeyboardButton("Уйти на обед", callback_data=LUNCH)]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Выберите команду:", reply_markup=reply_markup)
+    keyboard = [[KeyboardButton("/обед")]]
+    reply_markup = ReplyKeyboardMarkup(keyboard)
+    update.message.reply_text("Выберите команду.", reply_markup=reply_markup)
 
 
 # noinspection PyUnusedLocal
@@ -43,14 +45,20 @@ def complete_process_voice(bot: Bot, update: Update):
 
 
 def lunch_request(bot: Bot, update: Update):
-    # TODO: добавить проверку через диспетчера
     dispatcher_id = Taxopark.get_dispatcher_chat_id()
     driver = Taxopark.get_driver(tg_id=update.effective_user.id)
-    Taxopark.set_timeout(driver, LUNCH_TIMEOUT)
-    bot.send_message(dispatcher_id, "NOT IMPLEMENTED")
+
+    keyboard = [
+        [InlineKeyboardButton('Да', callback_data='+' + str(driver.id))],
+        [InlineKeyboardButton('Нет', callback_data='-' + str(driver.id))],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    bot.send_message(dispatcher_id, "Разрешить обед?", reply_markup=reply_markup)
+
+    update.effective_chat.send_message("Запрос на обед отправлен.")
 
 
-lunch_request_handler = CommandHandler(LUNCH[1:], lunch_request)
+lunch_request_handler = CommandHandler('обед', lunch_request)
 
 accept_voice_handler = ConversationHandler(
     entry_points=[CommandHandler(SEND_VOICE_CD[1:], process_voice)],

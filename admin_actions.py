@@ -22,7 +22,6 @@ DRIVERS_CACHE = {"add": {}, "modify": {}}
 OPTIONS_CACHE = {}
 
 
-# noinspection PyUnusedLocal
 def start(bot: Bot, update: Update):
     reply_keyboard = [[CD_ADD_DRIVER, CD_MODIFY_DRIVER, CD_CONFIG]]
 
@@ -45,6 +44,9 @@ STATE_SHOW_CONFIG, STATE_CHOOSE_OPTION, STATE_ACCEPT_OPTION = range(3)
 
 # noinspection PyUnusedLocal
 def show_config(bot: Bot, update: Update):
+    if not Taxopark.is_admin(update.effective_user.id):
+        return
+
     conf = Config.get()
     options = [
         (key, getattr(conf, key)) for key in conf if key in Config.translation_map
@@ -63,7 +65,6 @@ def show_config(bot: Bot, update: Update):
     return STATE_CHOOSE_OPTION
 
 
-# noinspection PyUnusedLocal
 def choose_option(bot: Bot, update: Update):
     option = update.callback_query.data
     OPTIONS_CACHE[update.effective_user.id] = option
@@ -84,6 +85,8 @@ def accept_option(bot: Bot, update: Update):
         config.set_dispatcher_chat_id(int(new_value))
     elif option == "check_drivers_interval":
         config.set_check_drivers_interval(int(new_value))
+    elif option == "lunch_timeout":
+        config.set_lunch_timeout(int(new_value))
     update.effective_chat.send_message(
         f"Опции {option} установлено новое значение: {new_value}."
     )
@@ -108,6 +111,9 @@ STATE_ASK_FOR_TG_CREDS, STATE_REGISTER_DRIVER = range(2)
 
 # noinspection PyUnusedLocal
 def add_drivers(bot: Bot, update: Update):
+    if not Taxopark.is_admin(update.effective_user.id):
+        return
+
     update.effective_chat.send_message(
         "Получаю список незарегистрированных водителей, ждите..."
     )
@@ -129,7 +135,7 @@ def ask_for_tg_creds(bot: Bot, update: Update):
     DRIVERS_CACHE["add"][update.effective_user.id] = driver
     update.effective_chat.send_message(
         f'Для регистрации водителя "{driver.name} {driver.surname}" введите '
-        'его имя пользователя Telegram и Telegram ID в формате "@username 123456"'
+        'его имя пользователя Telegram и Telegram ID в формате "@username 123456789"'
     )
     return STATE_REGISTER_DRIVER
 
@@ -153,7 +159,7 @@ add_driver_handler = ConversationHandler(
     entry_points=[CommandHandler(CD_ADD_DRIVER[1:], add_drivers)],
     states={
         STATE_ASK_FOR_TG_CREDS: [CallbackQueryHandler(ask_for_tg_creds)],
-        STATE_REGISTER_DRIVER: [RegexHandler(r"^@.{1,40} \d{9}$", register_driver)],
+        STATE_REGISTER_DRIVER: [RegexHandler(r"^@.{1,40} \d{3-11}$", register_driver)],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
 )
@@ -166,6 +172,9 @@ STATE_SHOW_DRIVER, STATE_ASK_MODIFY, STATE_COMPLETE_MODIFY = range(3)
 
 # noinspection PyUnusedLocal
 def registered_drivers_list(bot: Bot, update: Update):
+    if not Taxopark.is_admin(update.effective_user.id):
+        return
+
     drivers = Taxopark.get_registered_drivers()
     reply_markup = InlineKeyboardMarkup(
         [
@@ -188,7 +197,7 @@ def registered_drivers_list(bot: Bot, update: Update):
 def show_driver(bot: Bot, update: Update):
     driver_id = update.callback_query.data
     driver = Taxopark.get_driver(driver_id)
-    attributes = ("tg.name", "tg.id")
+    attributes = ("tg_name", "tg_id")
     reply_markup = InlineKeyboardMarkup(
         [
             [
