@@ -10,7 +10,7 @@ REQUEST_KWARGS = {"proxy_url": "socks5://localhost:9050/"}
 TEST_CHAT_ID = ""
 ADMIN_KEY = os.environ['ADMIN_KEY']
 YANDEX_LOGIN = os.environ['YANDEX_LOGIN']
-YANDEX_PASSWORD = os.environ['YANDEX_PASSORD']
+YANDEX_PASSWORD = os.environ['YANDEX_PASSWORD']
 TOKEN = os.environ['TOKEN']  # telegram token
 
 # db config
