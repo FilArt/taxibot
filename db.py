@@ -32,6 +32,7 @@ class Driver(me.Document):
     phone = me.StringField(required=True, max_length=20, unique=True)
     status = me.EmbeddedDocumentField(DriverStatus)
     tg = me.EmbeddedDocumentField(DriverTG)
+    lunch_count = me.IntField(default=0, min_value=0, max_value=5)
 
     def __str__(self):
         return f'{self.name} {self.surname}'
@@ -141,7 +142,7 @@ class Config(me.Document):
         config.check_drivers_interval = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"' "chaged from {} to {}",
+            'config modified. value "max_busy_time"' "chaged from %i to %i",
             old_value,
             new_value,
         )
@@ -152,7 +153,7 @@ class Config(me.Document):
         config.dispatcher_chat_id = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"' "chaged from {} to {}",
+            'config modified. value "max_busy_time"' "chaged from %i to %i",
             old_value,
             new_value,
         )
@@ -163,7 +164,7 @@ class Config(me.Document):
         config.max_busy_time = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"' "chaged from {} to {}",
+            'config modified. value "max_busy_time"' "chaged from %i to %i",
             old_value,
             new_value,
         )

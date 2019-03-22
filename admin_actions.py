@@ -71,6 +71,7 @@ def choose_option(bot: Bot, update: Update):
     update.effective_chat.send_message(
         f"Выбрана опция {option}. Введите новое значение."
     )
+    update.callback_query.answer("Processing...")
     return STATE_ACCEPT_OPTION
 
 
@@ -130,7 +131,9 @@ def add_drivers(bot: Bot, update: Update):
 
 # noinspection PyUnusedLocal
 def ask_for_tg_creds(bot: Bot, update: Update):
-    unique_id = update.callback_query.data
+    query = update.callback_query
+    query.answer("Processing...")
+    unique_id = query.data
     driver = DRIVERS_CACHE["add"][update.effective_user.id].pop(unique_id)
     DRIVERS_CACHE["add"][update.effective_user.id] = driver
     update.effective_chat.send_message(
@@ -159,7 +162,7 @@ add_driver_handler = ConversationHandler(
     entry_points=[CommandHandler(CD_ADD_DRIVER[1:], add_drivers)],
     states={
         STATE_ASK_FOR_TG_CREDS: [CallbackQueryHandler(ask_for_tg_creds)],
-        STATE_REGISTER_DRIVER: [RegexHandler(r"^@.{1,40} \d{3-11}$", register_driver)],
+        STATE_REGISTER_DRIVER: [RegexHandler(r"^@.{1,40} \d{3,11}$", register_driver)],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
 )
@@ -176,6 +179,12 @@ def registered_drivers_list(bot: Bot, update: Update):
         return
 
     drivers = Taxopark.get_registered_drivers()
+
+    if not drivers:
+        update.effective_chat.send_message("Ни одного водителя не зарегистрировано."
+                                           "Отмена операции.")
+        return
+
     reply_markup = InlineKeyboardMarkup(
         [
             [
@@ -212,6 +221,7 @@ def show_driver(bot: Bot, update: Update):
     update.effective_chat.send_message(
         "Выберите аттрибут для изменения:", reply_markup=reply_markup
     )
+    update.callback_query.answer("Processing...")
     return STATE_ASK_MODIFY
 
 
@@ -223,6 +233,7 @@ def ask_modify_driver(bot: Bot, update: Update):
         f'Для изменения аттрибута "{attribute}" отправьте сообщение '
         'с новым значением в формате "NEW=XXX", где ХХХ - новое значение.'
     )
+    update.callback_query.answer("Processing...")
     return STATE_COMPLETE_MODIFY
 
 

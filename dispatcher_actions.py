@@ -18,7 +18,7 @@ def let_go_for_lunch(bot: Bot, update: Update):
     tout = conf.lunch_timeout
 
     if answer == 'Yes':
-        Taxopark.set_timeout(driver, tout)
+        Taxopark.add_timeout(driver, tout)
         bot.send_message(driver.tg.id, f"Обед одобрен. Добавлено {tout} минут свободного времени.")
     else:
         bot.send_message(driver.tg.id, "Ваш запрос на обед отклонен.")

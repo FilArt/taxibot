@@ -12,7 +12,7 @@ def main():
     run_jobs(job_queue)
     handling_handlers(updater.dispatcher)
     updater.start_polling()
-    updater.idle()
+    # updater.idle()
 
 
 if __name__ == "__main__":

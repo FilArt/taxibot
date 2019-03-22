@@ -47,12 +47,18 @@ class Taxopark:
         return driver
 
     @classmethod
-    def set_timeout(cls, driver: Driver, timeout: int):
+    def add_timeout(cls, driver: Driver, timeout: int):
         payload = cls.get_payload(driver)
-        payload.timeout = timeout
-        payload.timeout_set_at = datetime.now()
+        if not payload.timeout:
+            payload.timeout_set_at = datetime.now()
+
+        if payload.timeout:
+            payload.timeout += timeout
+        else:
+            payload.timeout = timeout
+
         payload.save()
-        logger.info("set timeout %i for %s %s", timeout, driver.name, driver.surname)
+        logger.info("add timeout %i for %s %s", timeout, driver.name, driver.surname)
 
     @classmethod
     def update_tg_name(cls, driver: Driver, tg_name: str):

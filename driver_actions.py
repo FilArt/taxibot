@@ -1,11 +1,9 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Voice, Update, Bot, \
-    KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters, \
-    CallbackQueryHandler
+from telegram import Voice, Update, Bot,  KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters
 
 from admin_actions import cancel
-from constants import LUNCH_TIMEOUT
 from taxopark import Taxopark
+from db import Config
 
 SEND_VOICE_CD = "/sendVoice"
 STATE_PROCESS_VOICE = 0
@@ -38,24 +36,23 @@ def complete_process_voice(bot: Bot, update: Update):
     duration = update.effective_message.voice.duration
     dispatcher_chat_id = Taxopark.get_dispatcher_chat_id()
     bot.send_message(
-        dispatcher_chat_id, f'Обяснительная от "{driver.name} {driver.surname}"'
+        dispatcher_chat_id, f'Объяснительная от "{driver.name} {driver.surname}"'
     )
     bot.send_voice(dispatcher_chat_id, Voice(voice, duration))
     return ConversationHandler.END
 
 
 def lunch_request(bot: Bot, update: Update):
-    dispatcher_id = Taxopark.get_dispatcher_chat_id()
     driver = Taxopark.get_driver(tg_id=update.effective_user.id)
+    conf = Config.get()
 
-    keyboard = [
-        [InlineKeyboardButton('Да', callback_data='+' + str(driver.id))],
-        [InlineKeyboardButton('Нет', callback_data='-' + str(driver.id))],
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    bot.send_message(dispatcher_id, "Разрешить обед?", reply_markup=reply_markup)
-
-    update.effective_chat.send_message("Запрос на обед отправлен.")
+    if driver.lunch_count < 2:
+        update.effective_chat.send_message("Обед одобрен.")
+        Taxopark.add_timeout(driver, conf.lunch_timeout)
+        driver.lunch_count += 1
+        driver.save()
+    else:
+        update.effective_chat.send_message("Вы уже взяли два обеда! Это максимум в сутки.")
 
 
 lunch_request_handler = CommandHandler('обед', lunch_request)

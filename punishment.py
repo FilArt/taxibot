@@ -86,7 +86,7 @@ class Punisher:
             )
         elif punishment.is_call_dispatcher:
             self._call_dispatcher(punishment.message, driver)
-            Taxopark.set_timeout(driver, int(punishment.update_timeout))
+            Taxopark.add_timeout(driver, int(punishment.update_timeout))
 
     def _send_warning(self, warning, driver: Driver, reply_markup=None):
         self._bot.send_message(driver.tg.id, warning, reply_markup=reply_markup)
