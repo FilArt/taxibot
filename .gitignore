@@ -7,3 +7,4 @@ local_storage/
 .vscode/
 geckodriver.log
 .mypy_cache/
+*.sublime-*
