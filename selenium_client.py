@@ -94,6 +94,7 @@ class SeleniumClient:
         while cls.BUSY:
             sleep(1)
         cls.BUSY = True
+        cls.BROWSER.refresh()
         logger.debug("getting drivers from map")
 
         p = urlparse(cls.BROWSER.current_url)
