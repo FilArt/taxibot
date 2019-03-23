@@ -89,8 +89,7 @@ def accept_option(bot: Bot, update: Update):
     elif option == "lunch_timeout":
         config.set_lunch_timeout(int(new_value))
     update.effective_chat.send_message(
-        f"Опции {option} установлено новое значение: {new_value}."
-    )
+        f"Опции {option} установлено новое значение: {new_value}.")
     return ConversationHandler.END
 
 
@@ -103,33 +102,32 @@ config_handler = ConversationHandler(
     fallbacks=[CommandHandler("cancel", cancel)],
 )
 """ END CONFIG CONVERSATION """
-
-
 """ BEGIN ADD DRIVER CONVERSATION """
 CD_ADD_DRIVER = "/addDriver"
 STATE_ASK_FOR_TG_CREDS, STATE_REGISTER_DRIVER = range(2)
 
 
-# noinspection PyUnusedLocal
 def add_drivers(bot: Bot, update: Update):
     if not Taxopark.is_admin(update.effective_user.id):
         return
 
     update.effective_chat.send_message(
-        "Получаю список незарегистрированных водителей, ждите..."
-    )
-    drivers = {driver.phone: driver for driver in Taxopark.get_unregistered_drivers()}
+        "Получаю список незарегистрированных водителей, ждите...")
+    drivers = {
+        driver.phone: driver
+        for driver in Taxopark.get_unregistered_drivers()
+    }
     DRIVERS_CACHE["add"][update.effective_user.id] = drivers
-    keyboard = [
-        [InlineKeyboardButton(f"{d.name}  {d.surname}", callback_data=f"{phone}")]
-        for phone, d in drivers.items()
-    ]
+    keyboard = [[
+        InlineKeyboardButton(
+            f"{d.name}  {d.surname}", callback_data=f"{phone}")
+    ] for phone, d in drivers.items()]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.effective_chat.send_message("Выберите водителя:", reply_markup=reply_markup)
+    update.effective_chat.send_message(
+        "Выберите водителя:", reply_markup=reply_markup)
     return STATE_ASK_FOR_TG_CREDS
 
 
-# noinspection PyUnusedLocal
 def ask_for_tg_creds(bot: Bot, update: Update):
     query = update.callback_query
     query.answer("Processing...")
@@ -143,7 +141,6 @@ def ask_for_tg_creds(bot: Bot, update: Update):
     return STATE_REGISTER_DRIVER
 
 
-# noinspection PyUnusedLocal
 def register_driver(bot: Bot, update: Update):
     driver = DRIVERS_CACHE["add"].pop(update.effective_user.id)
     tg_name, tg_id = update.message.text.split()
@@ -153,8 +150,7 @@ def register_driver(bot: Bot, update: Update):
         f"{driver.name} {driver.surname}\n"
         f"Рабочий телефон: {driver.phone}\n"
         f"Telegram username: {driver.tg.name}\n"
-        f"Telegram ID: {driver.tg.id}"
-    )
+        f"Telegram ID: {driver.tg.id}")
     return ConversationHandler.END
 
 
@@ -162,18 +158,17 @@ add_driver_handler = ConversationHandler(
     entry_points=[CommandHandler(CD_ADD_DRIVER[1:], add_drivers)],
     states={
         STATE_ASK_FOR_TG_CREDS: [CallbackQueryHandler(ask_for_tg_creds)],
-        STATE_REGISTER_DRIVER: [RegexHandler(r"^@.{1,40} \d{3,11}$", register_driver)],
+        STATE_REGISTER_DRIVER:
+        [RegexHandler(r"^@.{1,40} \d{3,11}$", register_driver)],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
 )
 """ END ADD DRIVER CONVERSATION """
-
 """ BEGIN MODIFY DRIVER CONVERSATION """
 CD_MODIFY_DRIVER = "/modifyDriver"
 STATE_SHOW_DRIVER, STATE_ASK_MODIFY, STATE_COMPLETE_MODIFY = range(3)
 
 
-# noinspection PyUnusedLocal
 def registered_drivers_list(bot: Bot, update: Update):
     if not Taxopark.is_admin(update.effective_user.id):
         return
@@ -181,63 +176,48 @@ def registered_drivers_list(bot: Bot, update: Update):
     drivers = Taxopark.get_registered_drivers()
 
     if not drivers:
-        update.effective_chat.send_message("Ни одного водителя не зарегистрировано."
-                                           "Отмена операции.")
+        update.effective_chat.send_message(
+            "Ни одного водителя не зарегистрировано."
+            "Отмена операции.")
         return
 
-    reply_markup = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    f"{drivers.index(d) + 1}. {d.name} {d.surname} {d.tg.name}",
-                    callback_data=f"{d.id}",
-                )
-            ]
-            for d in drivers
-        ]
-    )
+    reply_markup = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"{drivers.index(d) + 1}. {d.name} {d.surname} {d.tg.name}",
+            callback_data=f"{d.id}",
+        )
+    ] for d in drivers])
     update.effective_chat.send_message(
-        "Список зарегистрированных водителей:", reply_markup=reply_markup
-    )
+        "Список зарегистрированных водителей:", reply_markup=reply_markup)
     return STATE_SHOW_DRIVER
 
 
-# noinspection PyUnusedLocal
 def show_driver(bot: Bot, update: Update):
     driver_id = update.callback_query.data
     driver = Taxopark.get_driver(driver_id)
     attributes = ("tg_name", "tg_id")
-    reply_markup = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    f"{attribute}: {getattr(driver, attribute)}",
-                    callback_data=f"{driver_id} {attribute}",
-                )
-            ]
-            for attribute in attributes
-        ]
-    )
+    reply_markup = InlineKeyboardMarkup([[
+        InlineKeyboardButton(
+            f"{attribute}: {getattr(driver, attribute)}",
+            callback_data=f"{driver_id} {attribute}",
+        )
+    ] for attribute in attributes])
     update.effective_chat.send_message(
-        "Выберите аттрибут для изменения:", reply_markup=reply_markup
-    )
+        "Выберите аттрибут для изменения:", reply_markup=reply_markup)
     update.callback_query.answer("Processing...")
     return STATE_ASK_MODIFY
 
 
-# noinspection PyUnusedLocal
 def ask_modify_driver(bot: Bot, update: Update):
     driver_id, attribute = update.callback_query.data.split()
     DRIVERS_CACHE["modify"][update.effective_user.id] = driver_id, attribute
     update.effective_chat.send_message(
         f'Для изменения аттрибута "{attribute}" отправьте сообщение '
-        'с новым значением в формате "NEW=XXX", где ХХХ - новое значение.'
-    )
+        'с новым значением в формате "NEW=XXX", где ХХХ - новое значение.')
     update.callback_query.answer("Processing...")
     return STATE_COMPLETE_MODIFY
 
 
-# noinspection PyUnusedLocal
 def complete_modify_driver(bot: Bot, update: Update):
     new_value = update.effective_message.text.split("=")[1]
     driver_id, attribute = DRIVERS_CACHE["modify"][update.effective_user.id]
@@ -251,17 +231,19 @@ def complete_modify_driver(bot: Bot, update: Update):
 
     update.effective_chat.send_message(
         f"Значение {attribute} водителя {driver.name} {driver.surname} "
-        f"изменено на {new_value}."
-    )
+        f"изменено на {new_value}.")
     return ConversationHandler.END
 
 
 modify_driver_handler = ConversationHandler(
-    entry_points=[CommandHandler(CD_MODIFY_DRIVER[1:], registered_drivers_list)],
+    entry_points=[
+        CommandHandler(CD_MODIFY_DRIVER[1:], registered_drivers_list)
+    ],
     states={
         STATE_SHOW_DRIVER: [CallbackQueryHandler(show_driver)],
         STATE_ASK_MODIFY: [CallbackQueryHandler(ask_modify_driver)],
-        STATE_COMPLETE_MODIFY: [RegexHandler("^NEW.+$", complete_modify_driver)],
+        STATE_COMPLETE_MODIFY:
+        [RegexHandler("^NEW.+$", complete_modify_driver)],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
 )

@@ -19,7 +19,9 @@ def let_go_for_lunch(bot: Bot, update: Update):
 
     if answer == 'Yes':
         Taxopark.add_timeout(driver, tout)
-        bot.send_message(driver.tg.id, f"Обед одобрен. Добавлено {tout} минут свободного времени.")
+        bot.send_message(
+            driver.tg.id,
+            f"Обед одобрен. Добавлено {tout} минут свободного времени.")
     else:
         bot.send_message(driver.tg.id, "Ваш запрос на обед отклонен.")
 
@@ -28,6 +30,4 @@ def let_go_for_lunch(bot: Bot, update: Update):
 
 lunch_handler = CallbackQueryHandler(let_go_for_lunch)
 
-dispatcher_handlers = (
-    lunch_handler,
-)
+dispatcher_handlers = (lunch_handler, )

@@ -43,14 +43,12 @@ class SeleniumClient:
         logger.debug("authentication of webdriver")
         browser.get(AUTH_URL)
         login_input = WebDriverWait(browser, 10).until(
-            ec.presence_of_element_located((By.ID, LOGIN_ID))
-        )
+            ec.presence_of_element_located((By.ID, LOGIN_ID)))
         login_input.send_keys(YANDEX_LOGIN)
         login_input.submit()
 
         password_input = WebDriverWait(browser, 10).until(
-            ec.presence_of_element_located((By.ID, PASSWORD_ID))
-        )
+            ec.presence_of_element_located((By.ID, PASSWORD_ID)))
         password_input.send_keys(YANDEX_PASSWORD)
         password_input.submit()
         sleep(1)
@@ -76,14 +74,12 @@ class SeleniumClient:
         result = []
         for name_info, phone in zip(names, phones):
             surname, name, patronymic = name_info.text.split()
-            result.append(
-                {
-                    "name": name,
-                    "surname": surname,
-                    "patronymic": patronymic,
-                    "phone": phone.text,
-                }
-            )
+            result.append({
+                "name": name,
+                "surname": surname,
+                "patronymic": patronymic,
+                "phone": phone.text,
+            })
 
         # TODO: доделать переход по пагинации
         cls.BUSY = False
@@ -115,14 +111,15 @@ class SeleniumClient:
             fullname, status, minutes = chunk
             minutes = int(minutes.split()[0])
             surname, name, patronymic = fullname.split()
-            drivers_info_dicts.append(
-                {
-                    "name": name,
-                    "surname": surname,
-                    "patronymic": patronymic,
-                    "status": {"value": status, "duracity": minutes},
-                }
-            )
+            drivers_info_dicts.append({
+                "name": name,
+                "surname": surname,
+                "patronymic": patronymic,
+                "status": {
+                    "value": status,
+                    "duracity": minutes
+                },
+            })
 
         for i in range(1, len(drivers_info_dicts) + 1):
             selector = cls.PHONE_TAGS_XPATH.format(i)
@@ -143,9 +140,8 @@ class SeleniumClient:
         except NoSuchElementException:
             logger.warning("busy button not found. refreshing.")
             cls.BROWSER.refresh()
-        return cls.BROWSER.find_element_by_class_name(cls.USER_LIST_TAG).text.split(
-            "\n"
-        )
+        return cls.BROWSER.find_element_by_class_name(
+            cls.USER_LIST_TAG).text.split("\n")
 
 
 SeleniumClient.init()

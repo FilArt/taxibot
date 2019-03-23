@@ -30,7 +30,8 @@ class Punishment:
     @property
     def button(self):
         if self._button:
-            return ReplyKeyboardMarkup([[SEND_VOICE_CD]], one_time_keyboard=True)
+            return ReplyKeyboardMarkup([[SEND_VOICE_CD]],
+                                       one_time_keyboard=True)
 
     @property
     def is_warning(self):
@@ -51,9 +52,8 @@ class Punisher:
         name, surname, status = driver.name, driver.surname, driver.status.value
 
         if not driver.busy:
-            logger.info(
-                'driver %s %s not busy, his status is - "%s"', name, surname, status
-            )
+            logger.info('driver %s %s not busy, his status is - "%s"', name,
+                        surname, status)
             return
 
         busy_time = driver.status.duracity
@@ -82,17 +82,18 @@ class Punisher:
         punishment = Punishment(payload.penalty)
         if punishment.is_warning:
             self._send_warning(
-                punishment.message, driver, reply_markup=punishment.button
-            )
+                punishment.message, driver, reply_markup=punishment.button)
         elif punishment.is_call_dispatcher:
             self._call_dispatcher(punishment.message, driver)
             Taxopark.add_timeout(driver, int(punishment.update_timeout))
 
     def _send_warning(self, warning, driver: Driver, reply_markup=None):
-        self._bot.send_message(driver.tg.id, warning, reply_markup=reply_markup)
+        self._bot.send_message(
+            driver.tg.id, warning, reply_markup=reply_markup)
         logger.info("warning for %s %s sent", driver.name, driver.surname)
 
     def _call_dispatcher(self, message, driver: Driver):
         message = merge_with_pattern(message, driver.to_dict())
         self._bot.send_message(Taxopark.get_dispatcher_chat_id(), message)
-        logger.info("dispatcher informed about %s %s", driver.name, driver.surname)
+        logger.info("dispatcher informed about %s %s", driver.name,
+                    driver.surname)

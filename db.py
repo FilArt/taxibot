@@ -56,8 +56,8 @@ class Driver(me.Document):
     @classmethod
     def from_driver_info(cls, driver_info: dict) -> "Driver":
         result = cls.objects.filter(
-            **{k: v for k, v in driver_info.items() if k != "status"}
-        )
+            **{k: v
+               for k, v in driver_info.items() if k != "status"})
         if result:
             result = result[0]
             result.status = DriverStatus(**driver_info["status"])
@@ -77,7 +77,8 @@ class Driver(me.Document):
 
 
 class Payload(me.Document):
-    driver = me.ReferenceField(Driver, required=True, reverse_delete_rule=me.CASCADE)
+    driver = me.ReferenceField(
+        Driver, required=True, reverse_delete_rule=me.CASCADE)
     penalty = me.IntField(min_value=0, required=True)
     timeout = me.IntField(min_value=0)
     timeout_set_at = me.DateTimeField()
@@ -99,9 +100,8 @@ class Payload(me.Document):
         max_penalty = max(PENALTIES.keys())
         if self.penalty == max_penalty:
             self.penalty = 0
-            logger.info(
-                "Penalty reset for %s %s", self.driver.name, self.driver.surname
-            )
+            logger.info("Penalty reset for %s %s", self.driver.name,
+                        self.driver.surname)
         else:
             self.penalty += 1
         self.save()
@@ -119,10 +119,12 @@ class Config(me.Document):
     max_busy_time = me.IntField(min_value=1, max_value=60)
 
     translation_map = {
-        "check_drivers_interval": "Периодичность проверки водителей (в минутах)",
+        "check_drivers_interval":
+        "Периодичность проверки водителей (в минутах)",
         "dispatcher_chat_id": "ID диспетчера",
         "max_busy_time": "Максимальное время простоя водителя (в минутах)",
-        "lunch_timeout": "Время обеда водителя (отключает уведомления о простое)",
+        "lunch_timeout":
+        "Время обеда водителя (отключает уведомления о простое)",
     }
 
     def set_lunch_timeout(self, new_value: int):
@@ -131,7 +133,8 @@ class Config(me.Document):
         config.lunch_timeout = new_value
         config.save()
         logger.info(
-            'config modified. value "lunch_timeout"' "chaged from %i to %i",
+            'config modified. value "lunch_timeout"'
+            "chaged from %i to %i",
             old_value,
             new_value,
         )
@@ -142,7 +145,8 @@ class Config(me.Document):
         config.check_drivers_interval = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"' "chaged from %i to %i",
+            'config modified. value "max_busy_time"'
+            "chaged from %i to %i",
             old_value,
             new_value,
         )
@@ -153,7 +157,8 @@ class Config(me.Document):
         config.dispatcher_chat_id = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"' "chaged from %i to %i",
+            'config modified. value "max_busy_time"'
+            "chaged from %i to %i",
             old_value,
             new_value,
         )
@@ -164,7 +169,8 @@ class Config(me.Document):
         config.max_busy_time = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"' "chaged from %i to %i",
+            'config modified. value "max_busy_time"'
+            "chaged from %i to %i",
             old_value,
             new_value,
         )
