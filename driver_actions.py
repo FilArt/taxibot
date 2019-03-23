@@ -1,6 +1,8 @@
 from telegram import Voice, Update, Bot, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters
 
+from datetime import datetime
+
 from admin_actions import cancel
 from taxopark import Taxopark
 from db import Config
@@ -43,6 +45,11 @@ def complete_process_voice(bot: Bot, update: Update):
 def lunch_request(bot: Bot, update: Update):
     driver = Taxopark.get_driver(tg_id=update.effective_user.id)
     conf = Config.get()
+
+    refresh_lunch_count = datetime.now().day - driver.lunch_ts.day >= 1
+    if refresh_lunch_count:
+        driver.lunch_count = 0
+        driver.lunch_ts = datetime.now()
 
     if driver.lunch_count < 2:
         update.effective_chat.send_message("Обед одобрен.")

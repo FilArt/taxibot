@@ -33,6 +33,7 @@ class Driver(me.Document):
     status = me.EmbeddedDocumentField(DriverStatus)
     tg = me.EmbeddedDocumentField(DriverTG)
     lunch_count = me.IntField(default=0, min_value=0, max_value=5)
+    lunch_ts = me.DateTimeField()
 
     def __str__(self):
         return f'{self.name} {self.surname}'
