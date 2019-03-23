@@ -100,7 +100,7 @@ config_handler = ConversationHandler(
 )
 """ END CONFIG CONVERSATION """
 """ BEGIN ADD DRIVER CONVERSATION """
-CD_ADD_DRIVER = "/addDriver"
+CD_ADD_DRIVER = "/добавитьВодителя"
 STATE_ASK_FOR_TG_CREDS, STATE_REGISTER_DRIVER = range(2)
 
 
