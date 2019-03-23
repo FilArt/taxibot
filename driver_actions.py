@@ -7,10 +7,10 @@ from admin_actions import cancel
 from taxopark import Taxopark
 from db import Config
 
-SEND_VOICE_CD = "/sendVoice"
+SEND_VOICE_CD = "/отправитьОбъяснительную"
 STATE_PROCESS_VOICE = 0
 
-LUNCH = "/lunch"
+LUNCH = "/обед"
 
 
 # noinspection PyUnusedLocal
@@ -69,7 +69,7 @@ accept_voice_handler = ConversationHandler(
         STATE_PROCESS_VOICE:
         [MessageHandler(Filters.voice, complete_process_voice)]
     },
-    fallbacks=[CommandHandler("cancel", cancel)],
+    fallbacks=[CommandHandler("отмена", cancel)],
 )
 
 driver_handlers = (accept_voice_handler, lunch_request_handler)

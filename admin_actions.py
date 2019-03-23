@@ -27,18 +27,20 @@ def start(bot: Bot, update: Update):
 
     update.message.reply_text(
         "Выберите команду:",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True),
+        reply_markup=ReplyKeyboardMarkup(
+            reply_keyboard, one_time_keyboard=True),
     )
 
 
 # noinspection PyUnusedLocal
 def cancel(bot: Bot, update: Update):
-    update.message.reply_text("Операция отменена.", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(
+        "Операция отменена.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
 """ BEGIN CONFIG CONVERSATION """
-CD_CONFIG = "/config"
+CD_CONFIG = "/настройки"
 STATE_SHOW_CONFIG, STATE_CHOOSE_OPTION, STATE_ACCEPT_OPTION = range(3)
 
 
@@ -48,20 +50,16 @@ def show_config(bot: Bot, update: Update):
         return
 
     conf = Config.get()
-    options = [
-        (key, getattr(conf, key)) for key in conf if key in Config.translation_map
-    ]
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                f"{Config.translation_map[key]}: {val}", callback_data=key
-            )
-        ]
-        for key, val in options
-    ]
+    options = [(key, getattr(conf, key)) for key in conf
+               if key in Config.translation_map]
+    keyboard = [[
+        InlineKeyboardButton(
+            f"{Config.translation_map[key]}: {val}", callback_data=key)
+    ] for key, val in options]
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.effective_chat.send_message("Выберите опцию:", reply_markup=reply_markup)
+    update.effective_chat.send_message(
+        "Выберите опцию:", reply_markup=reply_markup)
     return STATE_CHOOSE_OPTION
 
 
@@ -69,8 +67,7 @@ def choose_option(bot: Bot, update: Update):
     option = update.callback_query.data
     OPTIONS_CACHE[update.effective_user.id] = option
     update.effective_chat.send_message(
-        f"Выбрана опция {option}. Введите новое значение."
-    )
+        f"Выбрана опция {option}. Введите новое значение.")
     update.callback_query.answer("Processing...")
     return STATE_ACCEPT_OPTION
 
@@ -165,7 +162,7 @@ add_driver_handler = ConversationHandler(
 )
 """ END ADD DRIVER CONVERSATION """
 """ BEGIN MODIFY DRIVER CONVERSATION """
-CD_MODIFY_DRIVER = "/modifyDriver"
+CD_MODIFY_DRIVER = "/данныеВодителей"
 STATE_SHOW_DRIVER, STATE_ASK_MODIFY, STATE_COMPLETE_MODIFY = range(3)
 
 
