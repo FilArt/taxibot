@@ -69,7 +69,7 @@ accept_voice_handler = ConversationHandler(
         STATE_PROCESS_VOICE:
         [MessageHandler(Filters.voice, complete_process_voice)]
     },
-    fallbacks=[CommandHandler("отмена", cancel)],
+    fallbacks=[CommandHandler("cancel", cancel)],
 )
 
 driver_handlers = (accept_voice_handler, lunch_request_handler)
