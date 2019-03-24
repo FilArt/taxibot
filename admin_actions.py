@@ -96,7 +96,7 @@ config_handler = ConversationHandler(
         STATE_CHOOSE_OPTION: [CallbackQueryHandler(choose_option)],
         STATE_ACCEPT_OPTION: [MessageHandler(Filters.text, accept_option)],
     },
-    fallbacks=[CommandHandler("cancel", cancel)],
+    fallbacks=[CommandHandler("отмена", cancel)],
 )
 """ END CONFIG CONVERSATION """
 """ BEGIN ADD DRIVER CONVERSATION """
@@ -158,7 +158,7 @@ add_driver_handler = ConversationHandler(
         STATE_REGISTER_DRIVER:
         [RegexHandler(r"^@.{1,40} \d{3,11}$", register_driver)],
     },
-    fallbacks=[CommandHandler("cancel", cancel)],
+    fallbacks=[CommandHandler("отмена", cancel)],
 )
 """ END ADD DRIVER CONVERSATION """
 """ BEGIN MODIFY DRIVER CONVERSATION """
@@ -242,7 +242,7 @@ modify_driver_handler = ConversationHandler(
         STATE_COMPLETE_MODIFY:
         [RegexHandler("^NEW.+$", complete_modify_driver)],
     },
-    fallbacks=[CommandHandler("cancel", cancel)],
+    fallbacks=[CommandHandler("отмена", cancel)],
 )
 """ END MODIFY DRIVER CONVERSATION """
 
