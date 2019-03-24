@@ -21,6 +21,7 @@ PASSWORD_ID = "passp-field-passwd"
 class SeleniumClient:
     BROWSER: webdriver.Chrome = None
     BUSY = False
+    INITIALIZED = False
 
     BASE_URL = "https://fleet.taxi.yandex.ru/"
     TAXOPARK_URL = "https://fleet.taxi.yandex.ru/map"
@@ -91,6 +92,10 @@ class SeleniumClient:
         Возвращает дикты с водителями, которые доступны во вьюхе /maps
         Этот метод удобен для сбора занятых водителей
         """
+        if not cls.INITIALIZED:
+            cls.init()
+            cls.INITIALIZED = True
+
         while cls.BUSY:
             sleep(1)
         cls.BUSY = True
@@ -143,6 +148,3 @@ class SeleniumClient:
             cls.BROWSER.refresh()
         return cls.BROWSER.find_element_by_class_name(
             cls.USER_LIST_TAG).text.split("\n")
-
-
-SeleniumClient.init()
