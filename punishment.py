@@ -1,3 +1,4 @@
+from datetime import datetime
 from telegram import Bot, ReplyKeyboardMarkup
 
 from config import PENALTIES
@@ -56,14 +57,14 @@ class Punisher:
                         surname, status)
             return
 
-        busy_time = driver.status.duracity
-        if busy_time < conf.max_busy_time:
+        busy_minutes = round((datetime.utcnow() - driver.status.set_at).total_seconds() / 60)
+        if busy_minutes <= conf.max_busy_time:
             logger.info(
-                "skip driver %s %s - he is busy for only %i minutes."
+                "skip driver %s %s - he is busy for only %i minutes. "
                 "it is acceptable",
                 name,
                 surname,
-                busy_time,
+                busy_minutes,
             )
             return
 
@@ -74,7 +75,7 @@ class Punisher:
         payload = Taxopark.get_payload(driver)
         payload.update_timeout()
         if payload.timeout is not None:
-            logger.info("skip driver %s %s which has timeout", name, surname)
+            logger.info("skip driver %s %s which has timeout %i", name, surname, payload.timeout)
             return
 
         payload.increment_penalties()

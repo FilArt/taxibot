@@ -1,13 +1,14 @@
 from time import sleep
 
-from retry import retry
+import re
+from datetime import datetime
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
-from selenium.webdriver.common.by import By
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.wait import WebDriverWait
-from typing import List, Dict
+from typing import List, Dict, Iterable
 from urllib.parse import urlparse
 
 from config import HEADLESS, YANDEX_PASSWORD, YANDEX_LOGIN
@@ -17,20 +18,25 @@ AUTH_URL = "https://passport.yandex.ru/auth"
 LOGIN_ID = "passp-field-login"
 PASSWORD_ID = "passp-field-passwd"
 
+PHONE_PATTERN = re.compile(r'^\+\d{11}$')
+YANDEX_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fz'
+
+
+def get_element(driver, xpath, delay):
+    wait = WebDriverWait(driver, delay)
+    return wait.until(ec.presence_of_element_located((By.XPATH, xpath)))
+
 
 class SeleniumClient:
     BROWSER: webdriver.Chrome = None
     BUSY = False
-    INITIALIZED = False
 
     BASE_URL = "https://fleet.taxi.yandex.ru/"
     TAXOPARK_URL = "https://fleet.taxi.yandex.ru/map"
     DRIVERS_URL = BASE_URL + "drivers"
 
-    BUSY_BUTTON_XPATH = "/html/body/div[2]/div[3]/div[4]/div/div/div[1]/div/div[1]/div/div/div/button[2]"
+    BUSY_BUTTON_XPATH = '//span[text()[contains(., "Заняты")]]'
     PHONE_TAGS_XPATH = "/html/body/div[2]/div[3]/div[4]/div/div/div[1]/div/div[2]/div[2]/ul/div[{}]/div/a"
-
-    USER_LIST_TAG = "user-list"
 
     @classmethod
     def init(cls):
@@ -38,6 +44,8 @@ class SeleniumClient:
         options = Options()
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument("--window-size=1800,1080")
+        options.add_argument("--disable-gpu")
         options.headless = True if HEADLESS else False
         browser = webdriver.Chrome(options=options)
 
@@ -55,11 +63,27 @@ class SeleniumClient:
         sleep(1)
         cls.BROWSER = browser
 
-    def __del__(self):
-        self.BROWSER.quit()
+    @classmethod
+    def launched(cls):
+        try:
+            return cls.BROWSER is not None and cls.BROWSER.current_url is not None
+        except WebDriverException:
+            return False
 
     @classmethod
     def get_all_drivers_info(cls) -> List[Dict]:
+        try:
+            return cls._get_all_drivers_info()
+        except Exception as e:
+            logger.exception(e)
+            cls.BROWSER.refresh()
+            return []
+
+    @classmethod
+    def _get_all_drivers_info(cls) -> List[Dict]:
+        if not cls.launched():
+            cls.init()
+
         while cls.BUSY:
             sleep(1)
         cls.BUSY = True
@@ -87,64 +111,63 @@ class SeleniumClient:
         return result
 
     @classmethod
-    def get_drivers_info_from_map(cls) -> List[Dict]:
+    def get_drivers_info_from_map(cls) -> Iterable[Dict]:
+        try:
+            yield from cls._get_drivers_info_from_map()
+        except Exception as e:
+            logger.exception(e)
+            raise
+
+    @classmethod
+    def _get_drivers_info_from_map(cls) -> Iterable[Dict]:
         """
         Возвращает дикты с водителями, которые доступны во вьюхе /maps
         Этот метод удобен для сбора занятых водителей
         """
-        if not cls.INITIALIZED:
+        if not cls.launched():
             cls.init()
-            cls.INITIALIZED = True
 
         while cls.BUSY:
             sleep(1)
         cls.BUSY = True
-        cls.BROWSER.refresh()
         logger.debug("getting drivers from map")
 
         p = urlparse(cls.BROWSER.current_url)
         if "{}://{}{}".format(p.scheme, p.netloc, p.path) != cls.TAXOPARK_URL:
             cls.BROWSER.get(cls.TAXOPARK_URL)
 
-        user_list = cls._scrap_user_list()
-        if not user_list:
-            logger.warning("no one user found")
+        cls.BROWSER.refresh()
 
-        logger.debug("fetching drivers info from map")
-        drivers_info_dicts = []
-        for i in range(0, len(user_list), 4):
-            chunk = tuple(user_list[i:i + 4][1:])
-            fullname, status, minutes = chunk
-            minutes = int(minutes.split()[0])
-            surname, name, patronymic = fullname.split()
-            drivers_info_dicts.append({
-                "name": name,
-                "surname": surname,
-                "patronymic": patronymic,
-                "status": {
-                    "value": status,
-                    "duracity": minutes
-                },
-            })
+        free_user_list = cls.BROWSER.find_elements_by_class_name("user-item")
+        for user_elem in free_user_list:
+            yield cls._process_user(user_elem)
 
-        for i in range(1, len(drivers_info_dicts) + 1):
-            selector = cls.PHONE_TAGS_XPATH.format(i)
-            phone_tag = cls.BROWSER.find_element_by_xpath(selector)
-            href = phone_tag.get_attribute("href")
-            phone = href.split(":")[1]
-            drivers_info_dicts[i - 1]["phone"] = phone
+        busy_button = get_element(cls.BROWSER, cls.BUSY_BUTTON_XPATH, 5)
+        sleep(1)
+        busy_button.click()
+
+        busy_user_list = cls.BROWSER.find_elements_by_class_name("user-item")
+        for user_elem in busy_user_list:
+            yield cls._process_user(user_elem)
 
         cls.BUSY = False
-        return drivers_info_dicts
 
-    @classmethod
-    @retry(tries=3)
-    def _scrap_user_list(cls):
-        try:
-            sleep(1)
-            cls.BROWSER.find_element_by_xpath(cls.BUSY_BUTTON_XPATH).click()
-        except NoSuchElementException:
-            logger.warning("busy button not found. refreshing.")
-            cls.BROWSER.refresh()
-        return cls.BROWSER.find_element_by_class_name(
-            cls.USER_LIST_TAG).text.split("\n")
+    @staticmethod
+    def _process_user(user_elem):
+        phone = user_elem.find_element_by_xpath('./a').get_attribute('href').lstrip('callto:')
+        assert PHONE_PATTERN.fullmatch(phone), f"phone number {phone} doesn't match with pattern"
+        surname, name, patronymic = user_elem.find_element_by_xpath('.//*[contains(@class, "fio")]').text.split()
+        status = user_elem.find_element_by_xpath('.//*[contains(@class, "status-text")]').text
+        time_elem = user_elem.find_element_by_xpath('.//time').get_attribute('datetime')
+        time = datetime.strptime(time_elem, YANDEX_DATE_FORMAT)
+
+        return {
+            "name": name,
+            "surname": surname,
+            "patronymic": patronymic,
+            "phone": phone,
+            "status": {
+                "value": status,
+                "set_at": time,
+            },
+        }
