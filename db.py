@@ -157,7 +157,7 @@ class Config(me.Document):
         config.dispatcher_chat_id = new_value
         config.save()
         logger.info(
-            'config modified. value "max_busy_time"'
+            'config modified. value "dispatcher_chat_id" '
             "chaged from %i to %i",
             old_value,
             new_value,
