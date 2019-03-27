@@ -16,8 +16,7 @@ me.connect(
 
 class DriverStatus(me.EmbeddedDocument):
     value = me.StringField(max_length=30, min_length=2)
-    duracity = me.IntField(min_value=0, max_value=1000)
-    last_updated_at = me.DateTimeField()
+    set_at = me.DateTimeField()
 
 
 class DriverTG(me.EmbeddedDocument):
@@ -33,7 +32,7 @@ class Driver(me.Document):
     status = me.EmbeddedDocumentField(DriverStatus)
     tg = me.EmbeddedDocumentField(DriverTG)
     lunch_count = me.IntField(default=0, min_value=0, max_value=5)
-    lunch_ts = me.DateTimeField()
+    last_lunch_request_time = me.DateTimeField()
 
     def __str__(self):
         return f'{self.name} {self.surname}'
@@ -52,7 +51,7 @@ class Driver(me.Document):
 
     @property
     def busy(self):
-        return self.status.value == "Busy"
+        return self.status.value.lower() in ("занят", "busy")
 
     @classmethod
     def from_driver_info(cls, driver_info: dict) -> "Driver":
@@ -101,7 +100,7 @@ class Payload(me.Document):
         max_penalty = max(PENALTIES.keys())
         if self.penalty == max_penalty:
             self.penalty = 0
-            logger.info("Penalty reset for %s %s", self.driver.name,
+            logger.info("Penalty increased for %s %s", self.driver.name,
                         self.driver.surname)
         else:
             self.penalty += 1
@@ -114,10 +113,10 @@ class Admin(me.Document):
 
 class Config(me.Document):
     dispatcher_chat_id = me.IntField()
-    lunch_timeout = me.IntField()
+    lunch_timeout = me.IntField(default=30)
 
-    check_drivers_interval = me.IntField(min_value=1, max_value=60)
-    max_busy_time = me.IntField(min_value=1, max_value=60)
+    check_drivers_interval = me.IntField(min_value=1, max_value=60, default=5)  # minutes
+    max_busy_time = me.IntField(min_value=1, max_value=60, default=5)  # minutes
 
     translation_map = {
         "check_drivers_interval":

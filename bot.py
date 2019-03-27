@@ -3,6 +3,7 @@ from telegram.ext import Updater
 from config import TOKEN, REQUEST_KWARGS
 from handlers import handling_handlers
 from jobs import run_jobs
+from selenium_client import SeleniumClient
 
 updater = Updater(token=TOKEN, request_kwargs=REQUEST_KWARGS, workers=10)
 job_queue = updater.job_queue
@@ -16,4 +17,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except:
+        SeleniumClient.BROWSER.quit()

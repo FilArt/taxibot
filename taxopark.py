@@ -1,7 +1,6 @@
 from datetime import datetime
-from typing import List, Dict, Optional
-
 from mongoengine import DoesNotExist, MultipleObjectsReturned
+from typing import List, Dict, Iterable
 
 from config import DEBUG
 from db import Driver, Payload, Admin, Config
@@ -71,7 +70,7 @@ class Taxopark:
         driver.save()
 
     @classmethod
-    def is_registered(cls, driver: Driver = None):
+    def is_registered(cls, driver: Driver):
         return driver.tg is not None
 
     @classmethod
@@ -83,11 +82,11 @@ class Taxopark:
         )
 
     @classmethod
-    def get_payload(cls, driver: Driver) -> Optional[Payload]:
+    def get_payload(cls, driver: Driver) -> Payload:
         try:
             return Payload.objects.get(driver=driver)
         except DoesNotExist:
-            return Payload(driver=driver, penalty=1)
+            return Payload(driver=driver, penalty=0)
 
     @classmethod
     def get_admin(cls) -> Admin:
@@ -125,23 +124,19 @@ class Taxopark:
     def get_all_drivers_from_map(cls) -> List[Driver]:
         logger.info("fetching drivers list from map")
         drivers_info = SeleniumClient.get_drivers_info_from_map()
-        logger.info(f"{len(drivers_info)} drivers fetched from map")
         return cls._drivers_info_to_drivers(drivers_info)
 
     @classmethod
-    def _get_all_drivers_info(cls) -> List[Dict]:
+    def _get_all_drivers_info(cls) -> Iterable[Dict]:
         logger.info("fetching drivers list")
-        drivers_info = SeleniumClient.get_all_drivers_info()
-        logger.info("fetched all drivers")
-        return drivers_info
+        yield from SeleniumClient.get_all_drivers_info()
 
     @classmethod
-    def _get_drivers_info_from_map(cls) -> List[Dict]:
-        drivers_info = SeleniumClient.get_drivers_info_from_map()
-        return drivers_info
+    def _get_drivers_info_from_map(cls) -> Iterable[Dict]:
+        yield from SeleniumClient.get_drivers_info_from_map()
 
     @classmethod
-    def _drivers_info_to_drivers(cls, drivers_info: List[Dict]) -> List[Driver]:
+    def _drivers_info_to_drivers(cls, drivers_info: Iterable[Dict]) -> List[Driver]:
         drivers = []
         for driver_info in drivers_info:
             driver = Driver.from_driver_info(driver_info)

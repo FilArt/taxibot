@@ -46,19 +46,21 @@ def lunch_request(bot: Bot, update: Update):
     driver = Taxopark.get_driver(tg_id=update.effective_user.id)
     conf = Config.get()
 
-    refresh_lunch_count = datetime.now().day - driver.lunch_ts.day >= 1
-    if refresh_lunch_count:
-        driver.lunch_count = 0
-        driver.lunch_ts = datetime.now()
-
-    if driver.lunch_count < 2:
+    last_lunch_request_time = driver.last_lunch_request_time
+    if not last_lunch_request_time or driver.lunch_count < 2:
         update.effective_chat.send_message("Обед одобрен.")
         Taxopark.add_timeout(driver, conf.lunch_timeout)
         driver.lunch_count += 1
+        driver.last_lunch_request_time = datetime.now()
+        driver.save()
+
+    elif datetime.now().day - driver.last_lunch_request_time.day >= 1:
+        driver.lunch_count = 0
+        driver.last_lunch_request_time = datetime.now()
         driver.save()
     else:
         update.effective_chat.send_message(
-            "Вы уже взяли два обеда! Это максимум в сутки.")
+            "Вы уже взяли два обеда. Это максимум в сутки.")
 
 
 lunch_request_handler = CommandHandler('обед', lunch_request)
