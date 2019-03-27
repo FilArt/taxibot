@@ -35,21 +35,19 @@ class SeleniumClient:
     TAXOPARK_URL = "https://fleet.taxi.yandex.ru/map"
     DRIVERS_URL = BASE_URL + "drivers"
 
-    BUSY_BUTTON_XPATH = '//span[text()[contains(., "Заняты")]]'
-    PHONE_TAGS_XPATH = "/html/body/div[2]/div[3]/div[4]/div/div/div[1]/div/div[2]/div[2]/ul/div[{}]/div/a"
+    BUSY_BUTTON_XPATH = '//span[text()[contains(., "Busy")]]'
 
     @classmethod
     def init(cls):
-        logger.info("launching")
+        logger.info("launching browser")
         options = Options()
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument("--window-size=1800,1080")
+        options.add_argument("--window-size=800,600")
         options.add_argument("--disable-gpu")
         options.headless = True if HEADLESS else False
         browser = webdriver.Chrome(options=options)
 
-        logger.debug("authentication of webdriver")
         browser.get(AUTH_URL)
         login_input = WebDriverWait(browser, 10).until(
             ec.presence_of_element_located((By.ID, LOGIN_ID)))
@@ -130,7 +128,6 @@ class SeleniumClient:
         while cls.BUSY:
             sleep(1)
         cls.BUSY = True
-        logger.debug("getting drivers from map")
 
         p = urlparse(cls.BROWSER.current_url)
         if "{}://{}{}".format(p.scheme, p.netloc, p.path) != cls.TAXOPARK_URL:
@@ -156,8 +153,12 @@ class SeleniumClient:
     def _process_user(user_elem):
         phone = user_elem.find_element_by_xpath('./a').get_attribute('href').lstrip('callto:')
         assert PHONE_PATTERN.fullmatch(phone), f"phone number {phone} doesn't match with pattern"
-        surname, name, patronymic = user_elem.find_element_by_xpath('.//*[contains(@class, "fio")]').text.split()
+
+        name_string = user_elem.find_element_by_xpath('.//*[contains(@class, "fio")]').text
+        surname, name, patronymic = name_string.split()
+
         status = user_elem.find_element_by_xpath('.//*[contains(@class, "status-text")]').text
+
         time_elem = user_elem.find_element_by_xpath('.//time').get_attribute('datetime')
         time = datetime.strptime(time_elem, YANDEX_DATE_FORMAT)
 

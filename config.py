@@ -4,7 +4,7 @@ HEADLESS = True
 DEBUG = False
 
 # proxy
-#REQUEST_KWARGS = {"proxy_url": "socks5://localhost:9050/"}
+# REQUEST_KWARGS = {"proxy_url": "socks5://localhost:9050/"}
 REQUEST_KWARGS = {}
 
 # secrets

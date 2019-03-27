@@ -112,11 +112,13 @@ class Admin(me.Document):
 
 
 class Config(me.Document):
-    dispatcher_chat_id = me.IntField()
+    dispatcher_chat_id = me.IntField(000000)
     lunch_timeout = me.IntField(default=30)
 
-    check_drivers_interval = me.IntField(min_value=1, max_value=60, default=5)  # minutes
-    max_busy_time = me.IntField(min_value=1, max_value=60, default=5)  # minutes
+    check_drivers_interval = me.IntField(
+        min_value=1, max_value=60, default=5)  # minutes
+    max_busy_time = me.IntField(
+        min_value=1, max_value=60, default=5)  # minutes
 
     translation_map = {
         "check_drivers_interval":
@@ -177,4 +179,8 @@ class Config(me.Document):
 
     @classmethod
     def get(cls):
-        return cls.objects[0]
+        conf = cls.objects.first()
+        if not conf:
+            conf = Config()
+            conf.save()
+        return conf
