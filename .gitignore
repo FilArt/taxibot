@@ -8,3 +8,4 @@ local_storage/
 geckodriver.log
 .mypy_cache/
 *.sublime-*
+secrets_local.py

@@ -34,6 +34,13 @@ class Taxopark:
             raise
 
     @classmethod
+    def get_driver_by_phone(cls, phone: str):
+        try:
+            return Driver.objects.get(phone=phone)
+        except DoesNotExist:
+            return None
+
+    @classmethod
     def register_admin(cls, tg_id):
         new_admin = Admin(tg_id=tg_id)
         new_admin.save()

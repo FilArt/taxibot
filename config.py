@@ -1,27 +1,29 @@
 import os
 
 HEADLESS = True
-DEBUG = False
+DEBUG = os.environ['DEBUG']
 
 # proxy
 # REQUEST_KWARGS = {"proxy_url": "socks5://localhost:9050/"}
 REQUEST_KWARGS = {}
 
 # secrets
-TEST_CHAT_ID = ""
-ADMIN_KEY = os.environ['ADMIN_KEY']
-YANDEX_LOGIN = os.environ['YANDEX_LOGIN']
-YANDEX_PASSWORD = os.environ['YANDEX_PASSWORD']
-TOKEN = os.environ['TOKEN']  # telegram token
+if DEBUG:
+    from secrets_local import ADMIN_KEY, MONGO_SETTINGS, YANDEX_LOGIN, YANDEX_PASSWORD, TOKEN
+else:
+    ADMIN_KEY = os.environ['ADMIN_KEY']
+    YANDEX_LOGIN = os.environ['YANDEX_LOGIN']
+    YANDEX_PASSWORD = os.environ['YANDEX_PASSWORD']
+    TOKEN = os.environ['TOKEN']  # telegram token
 
-# db config
-MONGO_SETTINGS = {
-    "DB_NAME": "taxi",
-    "HOST": "localhost",
-    "PORT": 27017,
-    "USERNAME": os.environ['DB_USERNAME'],
-    "PASSWORD": os.environ['DB_PASSWORD'],
-}
+    # db config
+    MONGO_SETTINGS = {
+        "DB_NAME": "taxi",
+        "HOST": "localhost",
+        "PORT": 27017,
+        "USERNAME": os.environ['DB_USERNAME'],
+        "PASSWORD": os.environ['DB_PASSWORD'],
+    }
 
 PENALTIES = {
     0: {

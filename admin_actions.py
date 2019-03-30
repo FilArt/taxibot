@@ -141,13 +141,16 @@ def ask_for_tg_creds(bot: Bot, update: Update):
 def register_driver(bot: Bot, update: Update):
     driver = DRIVERS_CACHE["add"].pop(update.effective_user.id)
     tg_name, tg_id = update.message.text.split()
-    Taxopark.register_driver(driver, tg_name, tg_id)
-    update.effective_chat.send_message(
-        "Водитель зарегистрирован. Проверьте данные:\n"
-        f"{driver.name} {driver.surname}\n"
-        f"Рабочий телефон: {driver.phone}\n"
-        f"Telegram username: {driver.tg.name}\n"
-        f"Telegram ID: {driver.tg.id}")
+    if Taxopark.is_registered_by_tg_id(tg_id):
+        update.effective_chat.send_message("Уже есть водитель с такими данными.")
+    else:
+        Taxopark.register_driver(driver, tg_name, tg_id)
+        update.effective_chat.send_message(
+            "Водитель зарегистрирован. Проверьте данные:\n"
+            f"{driver.name} {driver.surname}\n"
+            f"Рабочий телефон: {driver.phone}\n"
+            f"Telegram username: {driver.tg.name}\n"
+            f"Telegram ID: {driver.tg.id}")
     return ConversationHandler.END
 
 

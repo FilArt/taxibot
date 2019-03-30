@@ -35,7 +35,7 @@ def start(bot: Bot, update: Update):
     elif Taxopark.is_admin(tg_id):
         admin_actions.start(bot, update)
     else:
-        reply_keyboard = [["/id"]]
+        reply_keyboard = [["/id", "/регистрация"]]
 
         update.message.reply_text(
             "Выберите команду:",

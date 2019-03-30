@@ -60,7 +60,8 @@ class Driver(me.Document):
                for k, v in driver_info.items() if k != "status"})
         if result:
             result = result[0]
-            result.status = DriverStatus(**driver_info["status"])
+            status = driver_info["status"]
+            result.status = DriverStatus(**status) if status else DriverStatus()
             return result
         result = cls(**driver_info)
         return result

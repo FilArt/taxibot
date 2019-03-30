@@ -1,11 +1,13 @@
 from telegram import Voice, Update, Bot, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters
+from telegram.ext import ConversationHandler, CommandHandler, MessageHandler, Filters, \
+    RegexHandler
 
 from datetime import datetime
 
 from admin_actions import cancel
 from taxopark import Taxopark
 from db import Config
+from utils import PHONE_PATTERN
 
 SEND_VOICE_CD = "/отправитьОбъяснительную"
 STATE_PROCESS_VOICE = 0
@@ -42,6 +44,16 @@ def complete_process_voice(bot: Bot, update: Update):
     return ConversationHandler.END
 
 
+accept_voice_handler = ConversationHandler(
+    entry_points=[CommandHandler(SEND_VOICE_CD[1:], process_voice)],
+    states={
+        STATE_PROCESS_VOICE:
+        [MessageHandler(Filters.voice, complete_process_voice)]
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
+
+
 def lunch_request(bot: Bot, update: Update):
     driver = Taxopark.get_driver(tg_id=update.effective_user.id)
     conf = Config.get()
@@ -65,11 +77,47 @@ def lunch_request(bot: Bot, update: Update):
 
 lunch_request_handler = CommandHandler('обед', lunch_request)
 
+
+def init_registration(bot: Bot, update: Update):
+    update.effective_chat.send_message(
+        "Для регистрации отправьте сообщение с вашим "
+        "рабочим номером телефона. Пример формата: "
+        "+71234567890"
+    )
+    return 0
+
+
+def complete_registration(bot: Bot, update: Update):
+    phone = update.effective_message.text
+    driver = Taxopark.get_driver_by_phone(phone)
+    if driver:
+        update.effective_chat.send_message("Вы уже зарегистрированы.")
+        return ConversationHandler.END
+
+    if driver is None:
+        all_drivers = Taxopark.get_all_drivers()
+        drivers_by_phone = {
+            d.phone: d for d in all_drivers
+        }
+        if phone in drivers_by_phone:
+            driver = drivers_by_phone[phone]
+        else:
+            update.effective_chat.send_message(
+                "Ваш телефон не найден в базе."
+                "Обратитесь к администрации таксопарка.")
+            return ConversationHandler.END
+
+    tg_name = update.effective_user.username
+    tg_id = update.effective_user.id
+    Taxopark.register_driver(driver, tg_name, tg_id)
+    update.effective_chat.send_message("Вы зарегистрированы.")
+    return ConversationHandler.END
+
+
 accept_voice_handler = ConversationHandler(
-    entry_points=[CommandHandler(SEND_VOICE_CD[1:], process_voice)],
+    entry_points=[CommandHandler('регистрация', init_registration)],
     states={
-        STATE_PROCESS_VOICE:
-        [MessageHandler(Filters.voice, complete_process_voice)]
+        0: [RegexHandler(PHONE_PATTERN, complete_registration)]
     },
     fallbacks=[CommandHandler("cancel", cancel)],
 )

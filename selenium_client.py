@@ -13,12 +13,12 @@ from urllib.parse import urlparse
 
 from config import HEADLESS, YANDEX_PASSWORD, YANDEX_LOGIN
 from log import selenium_logger as logger
+from utils import PHONE_PATTERN
 
 AUTH_URL = "https://passport.yandex.ru/auth"
 LOGIN_ID = "passp-field-login"
 PASSWORD_ID = "passp-field-passwd"
 
-PHONE_PATTERN = re.compile(r'^\+\d{11}$')
 YANDEX_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%fz'
 
 
@@ -102,6 +102,7 @@ class SeleniumClient:
                 "surname": surname,
                 "patronymic": patronymic,
                 "phone": phone.text,
+                "status": None,
             })
 
         # TODO: доделать переход по пагинации
