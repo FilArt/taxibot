@@ -1,7 +1,7 @@
 import os
 
 HEADLESS = True
-DEBUG = os.environ['DEBUG']
+DEBUG = os.environ.get('DEBUG', False)
 
 # proxy
 # REQUEST_KWARGS = {"proxy_url": "socks5://localhost:9050/"}
