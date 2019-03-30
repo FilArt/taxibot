@@ -74,7 +74,7 @@ class Punisher:
 
         payload = Taxopark.get_payload(driver)
         payload.update_timeout()
-        if payload.timeout is not None:
+        if not payload.timeout:
             logger.info("skip driver %s %s which has timeout %i", name, surname, payload.timeout)
             return
 
