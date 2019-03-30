@@ -110,15 +110,15 @@ class SeleniumClient:
         return result
 
     @classmethod
-    def get_drivers_info_from_map(cls) -> Iterable[Dict]:
+    def get_drivers_info_from_map(cls) -> List[Dict]:
         try:
-            yield from cls._get_drivers_info_from_map()
+            return cls._get_drivers_info_from_map()
         except Exception as e:
             logger.exception(e)
             raise
 
     @classmethod
-    def _get_drivers_info_from_map(cls) -> Iterable[Dict]:
+    def _get_drivers_info_from_map(cls) -> List[Dict]:
         """
         Возвращает дикты с водителями, которые доступны во вьюхе /maps
         Этот метод удобен для сбора занятых водителей
@@ -136,9 +136,14 @@ class SeleniumClient:
 
         cls.BROWSER.refresh()
 
+        drivers = []
+
         free_user_list = cls.BROWSER.find_elements_by_class_name("user-item")
         for user_elem in free_user_list:
-            yield cls._process_user(user_elem)
+            try:
+                drivers.append(cls._process_user(user_elem))
+            except Exception as e:
+                logger.exception(e)
 
         busy_button = get_element(cls.BROWSER, cls.BUSY_BUTTON_XPATH, 5)
         sleep(1)
@@ -146,9 +151,14 @@ class SeleniumClient:
 
         busy_user_list = cls.BROWSER.find_elements_by_class_name("user-item")
         for user_elem in busy_user_list:
-            yield cls._process_user(user_elem)
+            try:
+                drivers.append(cls._process_user(user_elem))
+            except Exception as e:
+                logger.exception(e)
 
         cls.BUSY = False
+
+        return drivers
 
     @staticmethod
     def _process_user(user_elem):
