@@ -94,7 +94,7 @@ class Payload(me.Document):
             if passed_seconds >= timeout_seconds:
                 self.timeout = None
             else:
-                self.timeout = (timeout_seconds - passed_seconds) // 60
+                self.timeout = int((timeout_seconds - passed_seconds) // 60)
         self.save()
 
     def increment_penalties(self):
